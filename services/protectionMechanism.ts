@@ -1,5 +1,8 @@
 import { Track } from "@/types/track";
 import * as SpotifyService from "./spotify";
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getAllTracksInPlaylist } from "./spotify";
+import { Alert } from 'react-native';
 
 // This file implements the "Mechanism of Protection" for StreamShield
 // Based on research of Spotify API capabilities, this implements the most effective
@@ -42,7 +45,11 @@ import * as SpotifyService from "./spotify";
  *    primary playback interface rather than the Spotify app they're familiar with.
  */
 
-// Singleton to manage the protection mechanism
+/**
+ * Singleton class to manage the StreamShield protection mechanism.
+ * Handles shield activation, deactivation, and playlist management to prevent
+ * Spotify listening activity from influencing recommendations.
+ */
 class ProtectionMechanism {
   private static instance: ProtectionMechanism;
   private isActive: boolean = false;
@@ -50,6 +57,9 @@ class ProtectionMechanism {
   private shieldPlaylistId: string | null = null;
   private tracksAddedDuringShield: Set<string> = new Set();
   private hasShownExclusionInstructions: boolean = false;
+  private static INSTRUCTIONS_SHOWN_KEY = 'streamshield:instructions_shown';
+  private static playlistCheckLock: Promise<string> | null = null;
+  private playlistCreationPromise: Promise<string> | null = null;
   
   private constructor() {}
   
@@ -60,50 +70,62 @@ class ProtectionMechanism {
     return ProtectionMechanism.instance;
   }
   
-  // Initialize the protection mechanism
+  /**
+   * Initializes the protection mechanism for the user.
+   * @param accessToken Spotify access token
+   * @param userId Spotify user ID
+   * @returns Promise<boolean> indicating success
+   */
   public async initialize(accessToken: string, userId: string): Promise<boolean> {
     try {
-      // In a real app, we would:
-      // 1. Check if the user already has a StreamShield playlist
-      // 2. If not, create one and instruct the user to mark it as "excluded from taste profile"
-      
-      // For demo purposes, we'll simulate creating a playlist
-      const playlistResponse = await SpotifyService.createPlaylist(
-        accessToken,
-        userId,
-        "StreamShield (Excluded from Recommendations)",
-        false // private playlist
-      );
-      
-      if (playlistResponse.success && playlistResponse.playlist) {
-        this.shieldPlaylistId = playlistResponse.playlist.id;
-        
-        // In a real app, we would show instructions to the user to:
-        // 1. Go to this playlist in Spotify
-        // 2. Click "..." menu
-        // 3. Select "Exclude from your taste profile"
-        
-        return true;
+      // Check if the user already has a StreamShield playlist
+      const existingPlaylist = await SpotifyService.findUserPlaylistWithRefresh('StreamShield Protected Session');
+      if (existingPlaylist) {
+        this.shieldPlaylistId = existingPlaylist.id;
+        console.log(`Found existing StreamShield playlist: ${existingPlaylist.id}`);
+      } else {
+        // Create a new StreamShield playlist
+        const newPlaylist = await SpotifyService.createUserPlaylistWithRefresh(userId, 'StreamShield Protected Session');
+        this.shieldPlaylistId = newPlaylist.id;
+        console.log(`Created new StreamShield playlist: ${newPlaylist.id}`);
       }
-      
-      return false;
+      return true;
     } catch (error) {
       console.error("Failed to initialize protection mechanism:", error);
       return false;
     }
   }
   
-  // Check if exclusion instructions have been shown
-  public hasShownInstructions(): boolean {
-    return this.hasShownExclusionInstructions;
+  /**
+   * Checks if the exclusion instructions have been shown to the user.
+   * @returns Promise<boolean>
+   */
+  public async hasShownInstructions(): Promise<boolean> {
+    try {
+      const value = await AsyncStorage.getItem(ProtectionMechanism.INSTRUCTIONS_SHOWN_KEY);
+      return value === 'true';
+    } catch (e) {
+      return false;
+    }
   }
   
-  // Mark exclusion instructions as shown
-  public markInstructionsAsShown(): void {
+  /**
+   * Marks the exclusion instructions as shown.
+   * @returns Promise<void>
+   */
+  public async markInstructionsAsShown(): Promise<void> {
+    try {
+      await AsyncStorage.setItem(ProtectionMechanism.INSTRUCTIONS_SHOWN_KEY, 'true');
     this.hasShownExclusionInstructions = true;
+    } catch (e) {
+      // ignore
+    }
   }
   
-  // Activate the shield
+  /**
+   * Activates the shield, starting a protected session.
+   * @returns boolean indicating if activation was successful
+   */
   public activate(): boolean {
     this.isActive = true;
     this.activatedAt = Date.now();
@@ -111,110 +133,187 @@ class ProtectionMechanism {
     return true;
   }
   
-  // Deactivate the shield
+  /**
+   * Deactivates the shield, ending the protected session.
+   * @returns boolean indicating if deactivation was successful
+   */
   public deactivate(): boolean {
     this.isActive = false;
     this.activatedAt = null;
     return true;
   }
   
-  // Check if the shield is active
+  /**
+   * Checks if the shield is currently active.
+   * @returns boolean
+   */
   public isShieldActive(): boolean {
     return this.isActive;
   }
   
-  // Get the time when the shield was activated
+  /**
+   * Gets the timestamp when the shield was activated.
+   * @returns number | null
+   */
   public getActivationTime(): number | null {
     return this.activatedAt;
   }
   
-  // Process a track that is currently playing
-  public async processCurrentTrack(accessToken: string, track: Track): Promise<boolean> {
-    if (!this.isActive || !this.shieldPlaylistId) {
-      return false;
+  /**
+   * Ensures a valid exclusion playlist exists and is not full. Creates a new one if missing or full.
+   * @param accessToken Spotify access token
+   * @param userId Spotify user ID
+   * @param forceCheckByName boolean indicating whether to force check by name
+   * @returns Promise<string> The playlist ID to use
+   */
+  public async ensureValidExclusionPlaylist(accessToken: string, userId: string, forceCheckByName = false): Promise<string> {
+    if (ProtectionMechanism.playlistCheckLock) {
+      return ProtectionMechanism.playlistCheckLock;
     }
-    
-    try {
-      // Only add the track to the shield playlist if we haven't already added it during this shield session
-      if (!this.tracksAddedDuringShield.has(track.id)) {
-        // In a real app, we would add the track to the shield playlist
-        const trackUri = `spotify:track:${track.id}`;
-        const addResponse = await SpotifyService.addTracksToPlaylist(
-          accessToken,
-          this.shieldPlaylistId,
-          [trackUri]
-        );
-        
-        if (addResponse.success) {
-          this.tracksAddedDuringShield.add(track.id);
-          return true;
+    ProtectionMechanism.playlistCheckLock = (async () => {
+      let playlistId = this.shieldPlaylistId;
+      let playlistWasCreated = false;
+      if (!forceCheckByName && playlistId && typeof playlistId === 'string') {
+        try {
+          const playlist = await SpotifyService.findUserPlaylistWithRefresh(undefined, playlistId);
+          if (!playlist || Object.keys(playlist).length === 0) {
+            this.shieldPlaylistId = null;
+            playlistId = null;
+          }
+        } catch (e) {
+          this.shieldPlaylistId = null;
+          playlistId = null;
         }
-      } else {
-        // Track already added during this shield session
-        return true;
+      } else if (forceCheckByName) {
+        playlistId = null;
+        this.shieldPlaylistId = null;
       }
-      
-      return false;
+      if (!playlistId) {
+        const existing = await SpotifyService.findUserPlaylistWithRefresh('StreamShield Protected Session');
+        if (existing) {
+          this.shieldPlaylistId = existing.id;
+          playlistId = existing.id;
+        } else {
+          const newPlaylist = await SpotifyService.createUserPlaylistWithRefresh(userId, 'StreamShield Protected Session');
+          this.shieldPlaylistId = newPlaylist.id;
+          playlistWasCreated = true;
+          if (typeof Alert !== 'undefined') {
+            Alert.alert(
+              'New Exclusion Playlist Created',
+              'A new StreamShield exclusion playlist was created.\n\nFor best results, open Spotify, find this playlist, and mark it as "Exclude from your taste profile".'
+            );
+          }
+          playlistId = newPlaylist.id;
+        }
+      }
+      if (!playlistId) throw new Error('Failed to resolve exclusion playlist ID after full check');
+      ProtectionMechanism.playlistCheckLock = null;
+      return playlistId;
+    })();
+    return ProtectionMechanism.playlistCheckLock;
+  }
+  
+  /**
+   * Adds a track to the exclusion playlist, robustly handling missing/full playlists.
+   * @param accessToken Spotify access token
+   * @param userId Spotify user ID
+   * @param track The track to add
+   * @returns Promise<boolean>
+   */
+  public async robustlyAddTrackToExclusionPlaylist(accessToken: string, userId: string, track: Track): Promise<boolean> {
+    try {
+      const playlistId = await this.ensureValidExclusionPlaylist(accessToken, userId);
+      const trackUri = `spotify:track:${track.id}`;
+      await SpotifyService.addTrackToPlaylistWithRefresh(playlistId, trackUri);
+      this.tracksAddedDuringShield.add(track.id);
+      console.log(`Added track "${track.name}" to StreamShield playlist for protection`);
+      return true;
     } catch (error) {
-      console.error("Failed to process current track:", error);
+      console.error("Failed to robustly add track to exclusion playlist:", error);
       return false;
     }
   }
   
-  // Process recently played tracks that were played during an active shield session
-  public async processRecentTracks(accessToken: string, tracks: Track[]): Promise<boolean> {
-    if (!this.shieldPlaylistId) {
+  /**
+   * Processes the currently playing track during a shielded session (uses robust playlist logic).
+   * @param accessToken Spotify access token
+   * @param userId Spotify user ID
+   * @param track The track to process
+   * @returns Promise<boolean> indicating success
+   */
+  public async processCurrentTrack(accessToken: string, userId: string, track: Track): Promise<boolean> {
+    if (!this.isActive) {
       return false;
     }
-    
-    try {
-      // Filter tracks that were played during the active shield session
-      const tracksToProcess = tracks.filter(track => 
-        track.timestamp && 
-        this.activatedAt && 
-        track.timestamp > this.activatedAt &&
-        !this.tracksAddedDuringShield.has(track.id)
-      );
-      
-      if (tracksToProcess.length === 0) {
-        return true;
-      }
-      
-      // In a real app, we would add these tracks to the shield playlist
-      const trackUris = tracksToProcess.map(track => `spotify:track:${track.id}`);
-      const addResponse = await SpotifyService.addTracksToPlaylist(
-        accessToken,
-        this.shieldPlaylistId,
-        trackUris
-      );
-      
-      if (addResponse.success) {
-        tracksToProcess.forEach(track => this.tracksAddedDuringShield.add(track.id));
-        return true;
-      }
-      
-      return false;
-    } catch (error) {
-      console.error("Failed to process recent tracks:", error);
-      return false;
+    if (this.tracksAddedDuringShield.has(track.id)) {
+      console.log(`Track "${track.name}" already added to StreamShield playlist during this session`);
+      return true;
     }
+    return this.robustlyAddTrackToExclusionPlaylist(accessToken, userId, track);
   }
   
-  // Clear the shield playlist (e.g., when logging out or periodically)
-  public async clearShieldPlaylist(accessToken: string): Promise<boolean> {
-    if (!this.shieldPlaylistId) {
+  /**
+   * Processes recently played tracks during a shielded session (uses robust playlist logic).
+   * @param accessToken Spotify access token
+   * @param userId Spotify user ID
+   * @param tracks Array of tracks to process
+   * @returns Promise<boolean> indicating success
+   */
+  public async processRecentTracks(accessToken: string, userId: string, tracks: Track[]): Promise<boolean> {
+    if (!this.isActive) {
       return false;
     }
-    
+    // Filter tracks that were played during the active shield session
+    const tracksToProcess = tracks.filter(track => 
+      track.timestamp && 
+      this.activatedAt && 
+      track.timestamp > this.activatedAt &&
+      !this.tracksAddedDuringShield.has(track.id)
+    );
+    if (tracksToProcess.length === 0) {
+      return true;
+    }
+    for (const track of tracksToProcess) {
+      await this.robustlyAddTrackToExclusionPlaylist(accessToken, userId, track);
+    }
+    console.log(`Processed ${tracksToProcess.length} recent tracks for StreamShield protection`);
+    return true;
+  }
+  
+  /**
+   * Clears the shield playlist (removes all tracks).
+   * @param accessToken Spotify access token
+   * @param userId Spotify user ID
+   * @returns Promise<boolean> indicating success
+   */
+  public async clearShieldPlaylist(accessToken: string, userId: string): Promise<boolean> {
     try {
-      const clearResponse = await SpotifyService.clearPlaylist(
-        accessToken,
-        this.shieldPlaylistId
-      );
-      
-      return clearResponse.success;
+      const playlistId = await this.ensureValidExclusionPlaylist(accessToken, userId);
+      // Get all tracks in the playlist
+      const playlist = await SpotifyService.findUserPlaylistWithRefresh(undefined, playlistId);
+      if (!playlist || !playlist.tracks || !playlist.tracks.items) return false;
+      const uris = playlist.tracks.items.map((item: any) => item.track && item.track.uri).filter(Boolean);
+      for (const uri of uris) {
+        await SpotifyService.removeTrackFromPlaylistWithRefresh(playlistId, uri);
+      }
+      this.tracksAddedDuringShield.clear();
+      return true;
     } catch (error) {
       console.error("Failed to clear shield playlist:", error);
+      return false;
+    }
+  }
+  
+  public async robustlyRemoveTrackFromExclusionPlaylist(accessToken: string, userId: string, track: Track): Promise<boolean> {
+    try {
+      const playlistId = await this.ensureValidExclusionPlaylist(accessToken, userId);
+      const trackUri = `spotify:track:${track.id}`;
+      await SpotifyService.removeTrackFromPlaylistWithRefresh(playlistId, trackUri);
+      this.tracksAddedDuringShield.delete(track.id);
+      console.log(`Removed track "${track.name}" from StreamShield playlist`);
+      return true;
+    } catch (error) {
+      console.error("Failed to robustly remove track from exclusion playlist:", error);
       return false;
     }
   }
@@ -224,6 +323,7 @@ class ProtectionMechanism {
 export const protectionMechanism = ProtectionMechanism.getInstance();
 
 // Export a hook to use the protection mechanism
+// NOTE: processCurrentTrack, processRecentTracks, and clearShieldPlaylist now require userId as an argument for robust playlist management.
 export const useProtectionMechanism = () => {
   return {
     initialize: protectionMechanism.initialize.bind(protectionMechanism),
@@ -231,9 +331,9 @@ export const useProtectionMechanism = () => {
     deactivate: protectionMechanism.deactivate.bind(protectionMechanism),
     isShieldActive: protectionMechanism.isShieldActive.bind(protectionMechanism),
     getActivationTime: protectionMechanism.getActivationTime.bind(protectionMechanism),
-    processCurrentTrack: protectionMechanism.processCurrentTrack.bind(protectionMechanism),
-    processRecentTracks: protectionMechanism.processRecentTracks.bind(protectionMechanism),
-    clearShieldPlaylist: protectionMechanism.clearShieldPlaylist.bind(protectionMechanism),
+    processCurrentTrack: protectionMechanism.processCurrentTrack.bind(protectionMechanism), // (accessToken, userId, track)
+    processRecentTracks: protectionMechanism.processRecentTracks.bind(protectionMechanism), // (accessToken, userId, tracks)
+    clearShieldPlaylist: protectionMechanism.clearShieldPlaylist.bind(protectionMechanism), // (accessToken, userId)
     hasShownInstructions: protectionMechanism.hasShownInstructions.bind(protectionMechanism),
     markInstructionsAsShown: protectionMechanism.markInstructionsAsShown.bind(protectionMechanism),
   };

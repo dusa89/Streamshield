@@ -1,0 +1,211 @@
+import React, { useState, useLayoutEffect } from "react";
+import { View, Text, StyleSheet, TextInput, Pressable, FlatList, Alert, ScrollView } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useThemeStore } from "@/stores/theme";
+import { useColorScheme } from "react-native";
+import { useNavigation } from "@react-navigation/native";
+import { useRouter } from "expo-router";
+import FontAwesome from 'react-native-vector-icons/FontAwesome';
+import { themes } from "@/constants/colors";
+
+export default function ActivityTagsScreen() {
+  const [tags, setTags] = useState([
+    { id: "1", name: "Workout", color: "#FF6B6B", isActive: true },
+    { id: "2", name: "Commute", color: "#4ECDC4", isActive: true },
+    { id: "3", name: "Study", color: "#45B7D1", isActive: false },
+    { id: "4", name: "Party", color: "#96CEB4", isActive: true },
+    { id: "5", name: "Sleep", color: "#FFEAA7", isActive: false },
+  ]);
+  const [newTagName, setNewTagName] = useState("");
+  const [newTagColor, setNewTagColor] = useState("#FF6B6B");
+  const [showAddForm, setShowAddForm] = useState(false);
+  
+  const colorScheme = useColorScheme();
+  const { theme: themePref, colorTheme } = useThemeStore();
+  const effectiveTheme = themePref === "auto" ? colorScheme ?? "light" : themePref;
+  const theme = themes[colorTheme][effectiveTheme];
+
+  const navigation = useNavigation();
+  const router = useRouter();
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerStyle: { backgroundColor: theme.background },
+      headerTitleStyle: { color: theme.text },
+      headerTintColor: theme.text,
+    });
+  }, [navigation, theme]);
+
+  const handleAddTag = () => {
+    if (!newTagName.trim()) return;
+    if (tags.some(tag => tag.name === newTagName.trim())) {
+      Alert.alert("Duplicate Tag", "This tag already exists.");
+      return;
+    }
+    setTags([...tags, { id: (tags.length + 1).toString(), name: newTagName.trim(), color: newTagColor, isActive: true }]);
+    setNewTagName("");
+    setNewTagColor("#FF6B6B");
+    setShowAddForm(false);
+  };
+
+  const handleDeleteTag = (index: number) => {
+    Alert.alert(
+      "Delete Tag",
+      "Are you sure you want to delete this tag?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => {
+    setTags(tags.filter((_, i) => i !== index));
+          },
+        },
+      ]
+    );
+  };
+
+  const handleEditTag = (index: number) => {
+    // Implement edit functionality
+  };
+
+  const handleSaveEdit = () => {
+    // Implement save edit functionality
+  };
+
+  return (
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={["bottom"]}>
+      <View style={styles.content}>
+        <Text style={[styles.title, { color: theme.text }]}>Activity Tags</Text>
+        <View style={styles.addRow}>
+          {showAddForm ? (
+            <>
+              <TextInput
+                style={[styles.input, { color: theme.text, borderColor: theme.border, backgroundColor: theme.background }]}
+                placeholder="Tag Name"
+                placeholderTextColor={theme.text}
+                value={newTagName}
+                onChangeText={setNewTagName}
+                onSubmitEditing={handleAddTag}
+              />
+          <TextInput
+                style={[styles.input, { color: theme.text, borderColor: theme.border, backgroundColor: theme.background }]}
+                placeholder="Tag Color"
+                placeholderTextColor={theme.text}
+                value={newTagColor}
+                onChangeText={setNewTagColor}
+            onSubmitEditing={handleAddTag}
+          />
+              <Pressable style={[styles.addButton, { backgroundColor: theme.tint }]} onPress={handleAddTag}>
+                <Text style={[styles.addButtonText, { color: theme.background }]}>Add</Text>
+              </Pressable>
+            </>
+          ) : (
+            <Pressable style={[styles.addButton, { backgroundColor: theme.tint }]} onPress={() => setShowAddForm(true)}>
+              <Text style={[styles.addButtonText, { color: theme.background }]}>Add New Tag</Text>
+          </Pressable>
+          )}
+        </View>
+        <FlatList
+          data={tags}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item, index }) => (
+            <View style={styles.tagRow}>
+              <View style={[styles.tagColor, { backgroundColor: item.color }]} />
+              <Text style={[styles.tagText, { color: theme.text }]}>{item.name}</Text>
+              <Pressable style={[styles.editButton, { backgroundColor: theme.border }]} onPress={() => handleEditTag(index)}>
+                <Text style={[styles.editButtonText, { color: theme.tint }]}>Edit</Text>
+                  </Pressable>
+              <Pressable style={[styles.deleteButton, { backgroundColor: '#FF3B30' }]} onPress={() => handleDeleteTag(index)}>
+                <Text style={[styles.deleteButtonText, { color: theme.background }]}>Delete</Text>
+                  </Pressable>
+            </View>
+          )}
+          ListEmptyComponent={<Text style={[styles.emptyText, { color: theme.text }]}>No tags yet.</Text>}
+        />
+      </View>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  content: {
+    flex: 1,
+    padding: 24,
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: "bold",
+    marginBottom: 24,
+  },
+  addRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 24,
+  },
+  input: {
+    flex: 1,
+    height: 40,
+    borderColor: "#ccc",
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    marginRight: 8,
+    fontSize: 16,
+  },
+  addButton: {
+    backgroundColor: "#1DB954",
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+  },
+  addButtonText: {
+    color: "#fff",
+    fontWeight: "bold",
+    fontSize: 16,
+  },
+  tagRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  tagColor: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    marginRight: 8,
+  },
+  tagText: {
+    fontSize: 16,
+    flex: 1,
+  },
+  editButton: {
+    marginLeft: 8,
+    backgroundColor: "#F5F5F5",
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+  },
+  editButtonText: {
+    color: "#1DB954",
+    fontWeight: "bold",
+  },
+  deleteButton: {
+    marginLeft: 8,
+    backgroundColor: "#FF3B30",
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+  },
+  deleteButtonText: {
+    color: "#fff",
+    fontWeight: "bold",
+  },
+  emptyText: {
+    textAlign: "center",
+    marginTop: 32,
+    fontSize: 16,
+  },
+}); 

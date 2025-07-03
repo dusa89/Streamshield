@@ -1,7 +1,9 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { View, Text, StyleSheet, Modal, Pressable, Image, ScrollView } from "react-native";
-import { Shield, Check } from "lucide-react-native";
 import { useProtectionMechanism } from "@/services/protectionMechanism";
+import { useThemeStore } from '@/stores/theme';
+import { useColorScheme } from 'react-native';
+import { themes } from '@/constants/colors';
 
 interface ExclusionInstructionsModalProps {
   visible: boolean;
@@ -10,12 +12,29 @@ interface ExclusionInstructionsModalProps {
 
 export function ExclusionInstructionsModal({ visible, onClose }: ExclusionInstructionsModalProps) {
   const protectionMechanism = useProtectionMechanism();
-  
-  const handleUnderstand = () => {
-    protectionMechanism.markInstructionsAsShown();
+  const [shouldShow, setShouldShow] = useState(false);
+  const colorScheme = useColorScheme();
+  const { theme: themePref, colorTheme } = useThemeStore();
+  const effectiveTheme = themePref === "auto" ? colorScheme ?? "light" : themePref;
+  const theme = themes[colorTheme][effectiveTheme];
+
+  useEffect(() => {
+    if (visible) {
+      (async () => {
+        const alreadyShown = await protectionMechanism.hasShownInstructions();
+        setShouldShow(!alreadyShown);
+      })();
+    }
+  }, [visible]);
+
+  const handleUnderstand = async () => {
+    await protectionMechanism.markInstructionsAsShown();
+    setShouldShow(false);
     onClose();
   };
   
+  if (!shouldShow) return null;
+
   return (
     <Modal
       animationType="slide"
@@ -23,22 +42,21 @@ export function ExclusionInstructionsModal({ visible, onClose }: ExclusionInstru
       visible={visible}
       onRequestClose={onClose}
     >
-      <View style={styles.centeredView}>
-        <View style={styles.modalView}>
+      <View style={[styles.centeredView, { backgroundColor: theme.text + '80' }]}>
+        <View style={[styles.modalView, { backgroundColor: theme.background, shadowColor: theme.border }]}>
           <ScrollView style={styles.scrollView}>
             <View style={styles.header}>
-              <Shield size={32} color="#1DB954" />
-              <Text style={styles.title}>One-Time Setup Required</Text>
+              <Text style={[styles.title, { color: theme.text }]}>One-Time Setup Required</Text>
             </View>
             
-            <Text style={styles.description}>
+            <Text style={[styles.description, { color: theme.text }]}>
               For StreamShield to effectively protect your music taste profile, you need to mark the 
               "StreamShield" playlist as excluded from your taste profile in Spotify.
             </Text>
             
-            <View style={styles.infoBox}>
-              <Text style={styles.infoTitle}>How StreamShield Works</Text>
-              <Text style={styles.infoText}>
+            <View style={[styles.infoBox, { backgroundColor: theme.border }] }>
+              <Text style={[styles.infoTitle, { color: theme.text }]}>How StreamShield Works</Text>
+              <Text style={[styles.infoText, { color: theme.text }]}>
                 When you activate the shield, StreamShield adds tracks you listen to during shielded sessions 
                 to a special playlist that you've marked as "excluded from taste profile" in Spotify. 
                 This helps dilute the impact of these plays on your recommendations.
@@ -46,31 +64,31 @@ export function ExclusionInstructionsModal({ visible, onClose }: ExclusionInstru
             </View>
             
             <View style={styles.stepsContainer}>
-              <Text style={styles.stepsTitle}>Follow these steps:</Text>
+              <Text style={[styles.stepsTitle, { color: theme.text }]}>Follow these steps:</Text>
               
               <View style={styles.step}>
-                <Text style={styles.stepNumber}>1</Text>
-                <Text style={styles.stepText}>Open the Spotify app</Text>
+                <Text style={[styles.stepNumber, { backgroundColor: theme.tint, color: theme.background }]}>1</Text>
+                <Text style={[styles.stepText, { color: theme.text }]}>Open the Spotify app</Text>
               </View>
               
               <View style={styles.step}>
-                <Text style={styles.stepNumber}>2</Text>
-                <Text style={styles.stepText}>Go to Your Library → Playlists</Text>
+                <Text style={[styles.stepNumber, { backgroundColor: theme.tint, color: theme.background }]}>2</Text>
+                <Text style={[styles.stepText, { color: theme.text }]}>Go to Your Library → Playlists</Text>
               </View>
               
               <View style={styles.step}>
-                <Text style={styles.stepNumber}>3</Text>
-                <Text style={styles.stepText}>Find "StreamShield (Excluded from Recommendations)"</Text>
+                <Text style={[styles.stepNumber, { backgroundColor: theme.tint, color: theme.background }]}>3</Text>
+                <Text style={[styles.stepText, { color: theme.text }]}>Find "StreamShield (Excluded from Recommendations)"</Text>
               </View>
               
               <View style={styles.step}>
-                <Text style={styles.stepNumber}>4</Text>
-                <Text style={styles.stepText}>Tap the "..." menu button</Text>
+                <Text style={[styles.stepNumber, { backgroundColor: theme.tint, color: theme.background }]}>4</Text>
+                <Text style={[styles.stepText, { color: theme.text }]}>Tap the "..." menu button</Text>
               </View>
               
               <View style={styles.step}>
-                <Text style={styles.stepNumber}>5</Text>
-                <Text style={styles.stepText}>Select "Exclude from your taste profile"</Text>
+                <Text style={[styles.stepNumber, { backgroundColor: theme.tint, color: theme.background }]}>5</Text>
+                <Text style={[styles.stepText, { color: theme.text }]}>Select "Exclude from your taste profile"</Text>
               </View>
             </View>
             
@@ -80,28 +98,27 @@ export function ExclusionInstructionsModal({ visible, onClose }: ExclusionInstru
                 style={styles.image}
                 resizeMode="contain"
               />
-              <Text style={styles.imageCaption}>Example of Spotify menu option</Text>
+              <Text style={[styles.imageCaption, { color: theme.tabIconDefault }]}>Example of Spotify menu option</Text>
             </View>
             
-            <Text style={styles.note}>
+            <Text style={[styles.note, { color: theme.tabIconDefault }]}>
               This is a one-time setup. You only need to do this once for StreamShield to work properly.
             </Text>
           </ScrollView>
           
           <View style={styles.buttonContainer}>
             <Pressable
-              style={styles.button}
+              style={[styles.button, { backgroundColor: theme.tint }]}
               onPress={handleUnderstand}
             >
-              <Check size={20} color="#FFFFFF" />
-              <Text style={styles.buttonText}>I've Done This</Text>
+              <Text style={[styles.buttonText, { color: theme.background }]}>I've Done This</Text>
             </Pressable>
             
             <Pressable
-              style={styles.laterButton}
+              style={[styles.laterButton, { backgroundColor: theme.background, borderColor: theme.tint }]}
               onPress={onClose}
             >
-              <Text style={styles.laterButtonText}>Remind Me Later</Text>
+              <Text style={[styles.laterButtonText, { color: theme.tint }]}>Remind Me Later</Text>
             </Pressable>
           </View>
         </View>
@@ -115,15 +132,12 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
   },
   modalView: {
     width: "90%",
     maxHeight: "80%",
-    backgroundColor: "white",
     borderRadius: 20,
     padding: 24,
-    shadowColor: "#000",
     shadowOffset: {
       width: 0,
       height: 2,
@@ -143,17 +157,14 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 20,
     fontWeight: "bold",
-    color: "#191414",
     marginLeft: 12,
   },
   description: {
     fontSize: 16,
-    color: "#333333",
     marginBottom: 20,
     lineHeight: 22,
   },
   infoBox: {
-    backgroundColor: "#F5F5F5",
     borderRadius: 12,
     padding: 16,
     marginBottom: 20,
@@ -161,12 +172,10 @@ const styles = StyleSheet.create({
   infoTitle: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#191414",
     marginBottom: 8,
   },
   infoText: {
     fontSize: 14,
-    color: "#333333",
     lineHeight: 20,
   },
   stepsContainer: {
@@ -175,7 +184,6 @@ const styles = StyleSheet.create({
   stepsTitle: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#191414",
     marginBottom: 12,
   },
   step: {
@@ -187,8 +195,6 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: "#1DB954",
-    color: "#FFFFFF",
     textAlign: "center",
     lineHeight: 24,
     fontWeight: "bold",
@@ -196,7 +202,6 @@ const styles = StyleSheet.create({
   },
   stepText: {
     fontSize: 15,
-    color: "#333333",
   },
   imageContainer: {
     alignItems: "center",
@@ -210,12 +215,10 @@ const styles = StyleSheet.create({
   },
   imageCaption: {
     fontSize: 14,
-    color: "#666666",
     fontStyle: "italic",
   },
   note: {
     fontSize: 14,
-    color: "#666666",
     fontStyle: "italic",
     marginBottom: 20,
     textAlign: "center",
@@ -224,7 +227,6 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   button: {
-    backgroundColor: "#1DB954",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
@@ -233,17 +235,21 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   buttonText: {
-    color: "#FFFFFF",
     fontSize: 16,
     fontWeight: "600",
     marginLeft: 8,
   },
   laterButton: {
-    paddingVertical: 12,
+    flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 12,
+    borderRadius: 30,
+    borderWidth: 1,
   },
   laterButtonText: {
-    color: "#666666",
-    fontSize: 14,
+    fontSize: 16,
+    fontWeight: "600",
+    marginLeft: 8,
   },
 });

@@ -9,6 +9,17 @@ dist/
 web-build/
 expo-env.d.ts
 
+# Expo/React Native
+/node_modules
+/.expo
+/.expo-shared
+/dist
+/web-build
+.expo/
+.expo-shared/
+android/
+ios/
+
 # Native
 *.orig.*
 *.jks
@@ -30,6 +41,7 @@ yarn-error.*
 *.pem
 
 # local env files
+.env
 .env*.local
 
 # typescript

@@ -1,9 +1,13 @@
-import { View, Text, StyleSheet, ScrollView, Pressable } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, Modal, TouchableOpacity, Linking, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { BarChart2, Clock, Music, Filter } from "lucide-react-native";
-import { useState } from "react";
-import { mockListeningStats } from "@/mocks/stats";
+import { useState, useEffect } from "react";
 import { LinearGradient } from "expo-linear-gradient";
+import { useThemeStore } from "@/stores/theme";
+import { useColorScheme } from "react-native";
+import { themes } from "@/constants/colors";
+import * as SpotifyService from "@/services/spotify";
+import { useAuthStore } from "@/stores/auth";
+import { useShieldStore } from "@/stores/shield";
 
 // Time period filters
 const TIME_PERIODS = ["Week", "Month", "Year"];
@@ -11,132 +15,190 @@ const TIME_PERIODS = ["Week", "Month", "Year"];
 export default function StatsScreen() {
   const [selectedPeriod, setSelectedPeriod] = useState("Week");
   const [showTrueTaste, setShowTrueTaste] = useState(false);
+  const colorScheme = useColorScheme();
+  const { theme: themePref, colorTheme } = useThemeStore();
+  const effectiveTheme = themePref === "auto" ? colorScheme ?? "light" : themePref;
+  const theme = themes[colorTheme][effectiveTheme];
   
-  const stats = mockListeningStats;
+  const { tokens } = useAuthStore();
+  const [tracks, setTracks] = useState<any[]>([]);
+  const [stats, setStats] = useState<any>(null);
+  const isTimestampShielded = useShieldStore((s) => s.isTimestampShielded);
+  const [artistMenuVisible, setArtistMenuVisible] = useState<string | null>(null);
+  const [selectedArtistId, setSelectedArtistId] = useState<string | null>(null);
+
+  // Helper to get the start timestamp for the selected period
+  const getPeriodStart = (period: string) => {
+    const now = Date.now();
+    if (period === 'Week') return now - 7 * 24 * 60 * 60 * 1000;
+    if (period === 'Month') return now - 30 * 24 * 60 * 60 * 1000;
+    if (period === 'Year') return now - 365 * 24 * 60 * 60 * 1000;
+    return 0;
+  };
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      if (!tokens?.accessToken) return;
+      try {
+        const recentTracks = await SpotifyService.getRecentlyPlayed(tokens.accessToken);
+        // Mark each track as shielded or not
+        const markedTracks = recentTracks.map((t) => ({ ...t, shielded: t.timestamp ? isTimestampShielded(t.timestamp) : false }));
+        setTracks(markedTracks);
+        // Compute stats for the selected period and taste view
+        const periodStart = getPeriodStart(selectedPeriod);
+        const tracksForPeriod = markedTracks.filter(t => (t.timestamp || 0) >= periodStart);
+        const tracksForStats = showTrueTaste
+          ? tracksForPeriod.filter(t => !t.shielded)
+          : tracksForPeriod;
+        const totalHours = tracksForStats.reduce((sum, t) => sum + (t.duration || 0), 0) / 1000 / 60 / 60;
+        const allArtists = tracksForStats.map(t => t.artist).filter(Boolean);
+        const artistCounts: Record<string, number> = {};
+        allArtists.forEach(a => { artistCounts[a] = (artistCounts[a] || 0) + 1; });
+        // Build a map from artist name to artistId (first occurrence wins)
+        const artistIdMap: Record<string, string | undefined> = {};
+        tracksForStats.forEach(t => {
+          if (t.artist && t.artistId && !artistIdMap[t.artist]) {
+            artistIdMap[t.artist] = t.artistId;
+          }
+        });
+        const topArtists = Object.entries(artistCounts)
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 5)
+          .map(([name, plays]) => ({ name, plays, id: artistIdMap[name] }));
+        setStats({
+          totalHours: totalHours.toFixed(1),
+          totalTracks: tracksForStats.length,
+          topArtists,
+          topGenres: [], // Not available from Spotify API directly
+        });
+      } catch (e) {
+        setStats(null);
+      }
+    };
+    fetchStats();
+  }, [tokens?.accessToken, isTimestampShielded, selectedPeriod, showTrueTaste]);
   
+  if (!stats) {
   return (
-    <SafeAreaView style={styles.container} edges={["bottom"]}>
-      <ScrollView style={styles.scrollView}>
-        <View style={styles.header}>
-          <Text style={styles.title}>Your Listening Stats</Text>
-          
-          <View style={styles.periodSelector}>
-            {TIME_PERIODS.map((period) => (
-              <Pressable
-                key={period}
-                style={[
-                  styles.periodOption,
-                  selectedPeriod === period && styles.periodOptionSelected
-                ]}
-                onPress={() => setSelectedPeriod(period)}
-              >
-                <Text 
-                  style={[
-                    styles.periodOptionText,
-                    selectedPeriod === period && styles.periodOptionTextSelected
-                  ]}
-                >
-                  {period}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-          
-          <Pressable 
-            style={[
-              styles.trueTasteToggle,
-              showTrueTaste && styles.trueTasteToggleActive
-            ]}
-            onPress={() => setShowTrueTaste(!showTrueTaste)}
-          >
-            <Filter size={16} color={showTrueTaste ? "#FFFFFF" : "#191414"} />
-            <Text 
-              style={[
-                styles.trueTasteText,
-                showTrueTaste && styles.trueTasteTextActive
-              ]}
-            >
-              {showTrueTaste ? "True Taste View" : "Show True Taste"}
-            </Text>
-          </Pressable>
+      <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={["bottom"]}>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <Text style={{ color: theme.text, fontSize: 18 }}>Loading stats...</Text>
         </View>
+      </SafeAreaView>
+    );
+  }
         
+  return (
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={["bottom"]}>
+      <ScrollView style={styles.scrollView} contentContainerStyle={{ paddingTop: 24 }}>
+        <Text style={{ fontSize: 22, fontWeight: '700', color: theme.text, marginLeft: 20, marginBottom: 8 }}>Stats</Text>
         <View style={styles.statsContainer}>
-          <View style={styles.statCard}>
+          <View style={[styles.statCard, { backgroundColor: theme.background, shadowColor: theme.border, borderColor: theme.border }] }>
             <View style={styles.statHeader}>
-              <Clock size={18} color="#1DB954" />
-              <Text style={styles.statTitle}>Listening Time</Text>
+              <Text style={[styles.statTitle, { color: theme.text }]}>Listening Time</Text>
             </View>
             
             <View style={styles.statContent}>
               <View style={styles.statItem}>
-                <Text style={styles.statValue}>{stats.totalHours}h</Text>
-                <Text style={styles.statLabel}>Total</Text>
+                <Text style={[styles.statValue, { color: theme.text }]}>{stats?.totalHours}h</Text>
+                <Text style={[styles.statLabel, { color: theme.text }]}>Total</Text>
               </View>
               
               <View style={styles.statDivider} />
               
               <View style={styles.statItem}>
-                <Text style={styles.statValue}>{showTrueTaste ? stats.unshieldedHours : stats.shieldedHours}h</Text>
-                <Text style={styles.statLabel}>{showTrueTaste ? "Unshielded" : "Shielded"}</Text>
-              </View>
-              
-              <View style={styles.statDivider} />
-              
-              <View style={styles.statItem}>
-                <Text style={styles.statValue}>{stats.percentShielded}%</Text>
-                <Text style={styles.statLabel}>Shielded</Text>
+                <Text style={[styles.statValue, { color: theme.text }]}>{stats?.totalTracks}</Text>
+                <Text style={[styles.statLabel, { color: theme.text }]}>Tracks</Text>
               </View>
             </View>
           </View>
           
-          <View style={styles.statCard}>
+          {stats.topArtists && stats.topArtists.length > 0 && (
+            <View style={[styles.statCard, { backgroundColor: theme.background, shadowColor: theme.border, borderColor: theme.border }] }>
             <View style={styles.statHeader}>
-              <Music size={18} color="#1DB954" />
-              <Text style={styles.statTitle}>Top Genres</Text>
+                <Text style={[styles.statTitle, { color: theme.text }]}>Top Artists</Text>
+              </View>
+              
+              <View style={styles.artistsContainer}>
+                {stats.topArtists.map((artist: any, index: number) => (
+                  <View key={index} style={[styles.artistItem, { borderBottomColor: theme.border }] }>
+                    <Text style={[styles.artistRank, { color: theme.text }]}>{index + 1}</Text>
+                    <Text style={[styles.artistName, { color: theme.text }]}>{artist.name}</Text>
+                    <Text style={[styles.artistPlays, { color: theme.text }]}>{artist.plays} plays</Text>
+                    <TouchableOpacity style={{ marginLeft: 8, padding: 8 }} onPress={() => { setArtistMenuVisible(artist.name); setSelectedArtistId(artist.id); }}>
+                      <Text style={{ fontSize: 18, color: theme.tabIconDefault }}>⋮</Text>
+                    </TouchableOpacity>
+                    {/* 3-dot menu for artist */}
+                    <Modal
+                      visible={artistMenuVisible === artist.name}
+                      transparent
+                      animationType="fade"
+                      onRequestClose={() => setArtistMenuVisible(null)}
+                    >
+                      <TouchableOpacity style={styles.menuOverlay} activeOpacity={1} onPress={() => setArtistMenuVisible(null)}>
+                        <View style={[styles.sheetContainer, { backgroundColor: theme.background, shadowColor: theme.border }] }>
+                          <TouchableOpacity style={styles.sheetAction} onPress={async () => {
+                            setArtistMenuVisible(null);
+                            if (artist.id) {
+                              const spotifyUri = `spotify:artist:${artist.id}`;
+                              const webUrl = `https://open.spotify.com/artist/${artist.id}`;
+                              try {
+                                const supported = await Linking.canOpenURL(spotifyUri);
+                                if (supported) {
+                                  Linking.openURL(spotifyUri);
+                                } else {
+                                  Linking.openURL(webUrl);
+                                }
+                              } catch (e) {
+                                Linking.openURL(webUrl);
+                              }
+                            }
+                          }}>
+                            <Text style={[styles.sheetActionText, { color: theme.text }]}>View Artist on Spotify</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity style={[styles.sheetCancel, { backgroundColor: theme.background }]} onPress={() => setArtistMenuVisible(null)}>
+                            <Text style={[styles.sheetCancelText, { color: theme.text }]}>Cancel</Text>
+                          </TouchableOpacity>
+                        </View>
+                      </TouchableOpacity>
+                    </Modal>
+                  </View>
+                ))}
+              </View>
+            </View>
+          )}
+          
+          {stats.topGenres && stats.topGenres.length > 0 && (
+            <View style={[styles.statCard, { backgroundColor: theme.background, shadowColor: theme.border, borderColor: theme.border }] }>
+              <View style={styles.statHeader}>
+                <Text style={[styles.statTitle, { color: theme.text }]}>Top Genres</Text>
             </View>
             
             <View style={styles.genreContainer}>
-              {(showTrueTaste ? stats.trueTasteGenres : stats.allGenres).map((genre, index) => (
+                {stats.topGenres.map((genre: any, index: number) => (
                 <View key={index} style={styles.genreItem}>
-                  <View style={styles.genreBar}>
+                    <View style={[styles.genreBar, { backgroundColor: theme.border }] }>
                     <LinearGradient
-                      colors={["#1DB954", "#147B36"]}
+                        colors={[theme.tint, "#147B36"]}
                       style={[styles.genreProgress, { width: `${genre.percentage}%` }]}
                       start={{ x: 0, y: 0 }}
                       end={{ x: 1, y: 0 }}
                     />
                   </View>
                   <View style={styles.genreInfo}>
-                    <Text style={styles.genreName}>{genre.name}</Text>
-                    <Text style={styles.genrePercentage}>{genre.percentage}%</Text>
+                      <Text style={[styles.genreName, { color: theme.text }]}>{genre.name}</Text>
+                      <Text style={[styles.genrePercentage, { color: theme.text }]}>{genre.percentage}%</Text>
                   </View>
                 </View>
               ))}
             </View>
           </View>
-          
-          <View style={styles.statCard}>
-            <View style={styles.statHeader}>
-              <BarChart2 size={18} color="#1DB954" />
-              <Text style={styles.statTitle}>Top Artists</Text>
-            </View>
-            
-            <View style={styles.artistsContainer}>
-              {(showTrueTaste ? stats.trueTasteArtists : stats.allArtists).map((artist, index) => (
-                <View key={index} style={styles.artistItem}>
-                  <Text style={styles.artistRank}>{index + 1}</Text>
-                  <Text style={styles.artistName}>{artist.name}</Text>
-                  <Text style={styles.artistPlays}>{artist.plays} plays</Text>
-                </View>
-              ))}
-            </View>
-          </View>
+          )}
           
           {showTrueTaste && (
-            <View style={styles.infoCard}>
-              <Text style={styles.infoTitle}>About True Taste View</Text>
-              <Text style={styles.infoText}>
+            <View style={[styles.infoCard, { backgroundColor: theme.border }] }>
+              <Text style={[styles.infoTitle, { color: theme.text }]}>About True Taste View</Text>
+              <Text style={[styles.infoText, { color: theme.text }]}>
                 This view shows your listening stats with all shielded sessions filtered out,
                 representing your core music taste as preserved by StreamShield.
               </Text>
@@ -151,80 +213,18 @@ export default function StatsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#FFFFFF",
   },
   scrollView: {
     flex: 1,
-  },
-  header: {
-    padding: 16,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#191414",
-    marginBottom: 16,
-  },
-  periodSelector: {
-    flexDirection: "row",
-    backgroundColor: "#F5F5F5",
-    borderRadius: 8,
-    padding: 4,
-    marginBottom: 16,
-  },
-  periodOption: {
-    flex: 1,
-    paddingVertical: 8,
-    alignItems: "center",
-    borderRadius: 6,
-  },
-  periodOptionSelected: {
-    backgroundColor: "#FFFFFF",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 1,
-    elevation: 1,
-  },
-  periodOptionText: {
-    fontSize: 14,
-    color: "#666666",
-  },
-  periodOptionTextSelected: {
-    color: "#191414",
-    fontWeight: "500",
-  },
-  trueTasteToggle: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#F5F5F5",
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 20,
-    alignSelf: "flex-start",
-    marginBottom: 8,
-  },
-  trueTasteToggleActive: {
-    backgroundColor: "#1DB954",
-  },
-  trueTasteText: {
-    fontSize: 14,
-    color: "#191414",
-    marginLeft: 6,
-  },
-  trueTasteTextActive: {
-    color: "#FFFFFF",
   },
   statsContainer: {
     padding: 16,
     paddingTop: 0,
   },
   statCard: {
-    backgroundColor: "#FFFFFF",
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,
-    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 3,
@@ -239,7 +239,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
     marginLeft: 8,
-    color: "#191414",
   },
   statContent: {
     flexDirection: "row",
@@ -252,16 +251,13 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 24,
     fontWeight: "bold",
-    color: "#191414",
   },
   statLabel: {
     fontSize: 12,
-    color: "#666666",
     marginTop: 4,
   },
   statDivider: {
     width: 1,
-    backgroundColor: "#EEEEEE",
   },
   genreContainer: {
     marginTop: 8,
@@ -271,7 +267,6 @@ const styles = StyleSheet.create({
   },
   genreBar: {
     height: 8,
-    backgroundColor: "#F5F5F5",
     borderRadius: 4,
     overflow: "hidden",
   },
@@ -286,11 +281,9 @@ const styles = StyleSheet.create({
   },
   genreName: {
     fontSize: 14,
-    color: "#191414",
   },
   genrePercentage: {
     fontSize: 14,
-    color: "#666666",
   },
   artistsContainer: {
     marginTop: 8,
@@ -300,25 +293,20 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: "#F5F5F5",
   },
   artistRank: {
     width: 24,
     fontSize: 16,
     fontWeight: "bold",
-    color: "#1DB954",
   },
   artistName: {
     flex: 1,
     fontSize: 14,
-    color: "#191414",
   },
   artistPlays: {
     fontSize: 14,
-    color: "#666666",
   },
   infoCard: {
-    backgroundColor: "#F5F5F5",
     borderRadius: 12,
     padding: 16,
     marginBottom: 24,
@@ -326,12 +314,40 @@ const styles = StyleSheet.create({
   infoTitle: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#191414",
     marginBottom: 8,
   },
   infoText: {
     fontSize: 14,
-    color: "#666666",
     lineHeight: 20,
+  },
+  menuOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  sheetContainer: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 16,
+    width: '80%',
+    maxHeight: '80%',
+  },
+  sheetAction: {
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E0E0E0',
+  },
+  sheetActionText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 16,
+  },
+  sheetCancel: {
+    padding: 16,
+  },
+  sheetCancelText: {
+    fontSize: 16,
+    color: '#333333',
   },
 });

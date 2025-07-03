@@ -1,30 +1,28 @@
-import React from 'react';
-import { View, Text, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Shield } from 'lucide-react-native';
-import { useSpotifyAuth } from '@/hooks/useSpotifyAuth';
-import * as Clipboard from 'expo-clipboard';
+import React from "react";
+import { View, Text, Pressable, StyleSheet, ActivityIndicator } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
+import { useSpotifyAuth } from "@/hooks/useSpotifyAuth";
+import * as Clipboard from "expo-clipboard";
 
 export default function LoginScreen() {
-  const { login, loading, error, redirectUri } = useSpotifyAuth();
+  const { login, loading, error, redirectUri, authRequestUrl } = useSpotifyAuth();
 
   const handleCopyUri = async () => {
     if (redirectUri) {
       await Clipboard.setStringAsync(redirectUri);
-      alert('Redirect URI copied to clipboard!');
+      alert("Redirect URI copied to clipboard!");
     }
   };
 
   return (
     <LinearGradient
-      colors={['#1DB954', '#191414']}
+      colors={["#1DB954", "#191414"]}
       style={styles.container}
       start={{ x: 0, y: 0 }}
       end={{ x: 0, y: 1 }}
     >
       <View style={styles.content}>
         <View style={styles.logoContainer}>
-          <Shield size={80} color="#FFFFFF" />
           <Text style={styles.appName}>StreamShield</Text>
         </View>
         
@@ -44,28 +42,30 @@ export default function LoginScreen() {
           )}
         </Pressable>
 
-        {error && (
-          <Text style={styles.errorText}>
-            Error: {error.message || 'An unknown error occurred.'}
-          </Text>
+        {/* DEBUG: Show the full AuthRequest URL for OAuth troubleshooting */}
+        {authRequestUrl && (
+          <View style={styles.uriContainer}>
+            <Text style={styles.uriLabel}>DEBUG: Auth Request URL</Text>
+            <Text style={styles.uriText} selectable={true}>{authRequestUrl}</Text>
+            <Text style={styles.instructions}>
+              Look for <Text style={{fontWeight:'bold'}}>&redirect_uri=</Text> in the above URL. Copy the value after it (before the next <Text style={{fontWeight:'bold'}}>&</Text>) and add it to your Spotify Developer Dashboard under "Redirect URIs".
+            </Text>
+          </View>
         )}
 
-        {/* Display the redirect URI */}
-        <View style={styles.uriContainer}>
-          <Text style={styles.uriLabel}>Your Redirect URI for this session:</Text>
-          <Text style={styles.uriText} selectable>{redirectUri || 'Generating...'}</Text>
-          <Pressable 
-            style={styles.copyButton} 
-            onPress={handleCopyUri} 
-            disabled={!redirectUri}
-          >
-            <Text style={styles.copyButtonText}>Copy URI</Text>
-          </Pressable>
-        </View>
-        
-        <Text style={styles.instructions}>
-          IMPORTANT: Copy this URI and add it to your Spotify Developer Dashboard under "Redirect URIs" in your app settings.
-        </Text>
+        {error && (
+          <View style={styles.errorBox}>
+            <Text style={styles.errorText}>
+              {error.message
+                ? `Login failed: ${error.message}`
+                : "An unknown error occurred during login. Please try again or contact support."}
+            </Text>
+            {/* Optionally, log the error details for debugging */}
+            {__DEV__ && (
+              <Text style={styles.errorDetails}>{JSON.stringify(error, null, 2)}</Text>
+            )}
+          </View>
+        )}
       </View>
     </LinearGradient>
   );
@@ -111,6 +111,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "600",
   },
+  errorBox: { marginTop: 20, width: "90%", backgroundColor: "rgba(255,0,0,0.08)", borderRadius: 5, padding: 8 },
   errorText: {
     color: "#FFCCCC",
     marginTop: 20,
@@ -120,6 +121,7 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     width: "90%",
   },
+  errorDetails: { color: "#FF6666", fontSize: 10, marginTop: 4, fontFamily: "monospace" },
   uriContainer: {
     marginTop: 40,
     padding: 15,

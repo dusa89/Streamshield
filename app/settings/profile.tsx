@@ -1,16 +1,15 @@
+import React, { useState } from "react";
 import { View, Text, StyleSheet, Pressable, TextInput, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Image } from "expo-image";
-import { useState } from "react";
 import { useAuthStore } from "@/stores/auth";
-import { Camera, User } from "lucide-react-native";
 import * as ImagePicker from "expo-image-picker";
 
 export default function ProfileScreen() {
   const { user, updateUser } = useAuthStore();
   const [displayName, setDisplayName] = useState(user?.displayName || "");
   const [isEditing, setIsEditing] = useState(false);
-  
+
   const handleUpdateProfile = () => {
     if (isEditing) {
       if (displayName.trim()) {
@@ -23,7 +22,7 @@ export default function ProfileScreen() {
       setIsEditing(true);
     }
   };
-  
+
   const handleSelectProfileImage = async () => {
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
@@ -32,7 +31,6 @@ export default function ProfileScreen() {
         aspect: [1, 1],
         quality: 0.8,
       });
-      
       if (!result.canceled && result.assets && result.assets.length > 0) {
         // In a real app, we would upload this image to a server
         // For now, we'll just update the local state
@@ -43,7 +41,7 @@ export default function ProfileScreen() {
       Alert.alert("Error", "Failed to select image. Please try again.");
     }
   };
-  
+
   return (
     <SafeAreaView style={styles.container} edges={["bottom"]}>
       <View style={styles.content}>
@@ -56,10 +54,9 @@ export default function ProfileScreen() {
             style={styles.changeImageButton}
             onPress={handleSelectProfileImage}
           >
-            <Camera size={20} color="#FFFFFF" />
+            <Text style={styles.changeImageText}>Change Image</Text>
           </Pressable>
         </View>
-        
         <View style={styles.infoContainer}>
           <View style={styles.infoItem}>
             <Text style={styles.infoLabel}>Display Name</Text>
@@ -74,17 +71,14 @@ export default function ProfileScreen() {
               <Text style={styles.infoValue}>{user?.displayName}</Text>
             )}
           </View>
-          
           <View style={styles.infoItem}>
             <Text style={styles.infoLabel}>Email</Text>
             <Text style={styles.infoValue}>{user?.email}</Text>
           </View>
-          
           <View style={styles.infoItem}>
             <Text style={styles.infoLabel}>Spotify ID</Text>
             <Text style={styles.infoValue}>{user?.spotifyId}</Text>
           </View>
-          
           <View style={styles.infoItem}>
             <Text style={styles.infoLabel}>Subscription</Text>
             <Text style={[
@@ -101,7 +95,6 @@ export default function ProfileScreen() {
             </Text>
           </View>
         </View>
-        
         <Pressable 
           style={styles.updateButton}
           onPress={handleUpdateProfile}
@@ -110,36 +103,6 @@ export default function ProfileScreen() {
             {isEditing ? "Save Changes" : "Edit Profile"}
           </Text>
         </Pressable>
-        
-        <View style={styles.connectedAccountsContainer}>
-          <Text style={styles.sectionTitle}>Connected Accounts</Text>
-          
-          <View style={styles.connectedAccount}>
-            <View style={styles.accountIconContainer}>
-              <Text style={styles.accountIcon}>♫</Text>
-            </View>
-            <View style={styles.accountInfo}>
-              <Text style={styles.accountName}>Spotify</Text>
-              <Text style={styles.accountStatus}>Connected</Text>
-            </View>
-            <Pressable style={styles.disconnectButton}>
-              <Text style={styles.disconnectText}>Disconnect</Text>
-            </Pressable>
-          </View>
-          
-          <View style={styles.connectedAccount}>
-            <View style={[styles.accountIconContainer, styles.lastfmIcon]}>
-              <Text style={styles.accountIcon}>L</Text>
-            </View>
-            <View style={styles.accountInfo}>
-              <Text style={styles.accountName}>Last.fm</Text>
-              <Text style={styles.accountStatus}>Not connected</Text>
-            </View>
-            <Pressable style={styles.connectButton}>
-              <Text style={styles.connectText}>Connect</Text>
-            </Pressable>
-          </View>
-        </View>
       </View>
     </SafeAreaView>
   );
@@ -175,6 +138,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderWidth: 2,
     borderColor: "#FFFFFF",
+  },
+  changeImageText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "600",
   },
   infoContainer: {
     backgroundColor: "#FFFFFF",
@@ -227,76 +195,5 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 16,
     fontWeight: "600",
-  },
-  connectedAccountsContainer: {
-    marginBottom: 24,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#191414",
-    marginBottom: 16,
-  },
-  connectedAccount: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#FFFFFF",
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 2,
-  },
-  accountIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "#1DB954",
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 12,
-  },
-  lastfmIcon: {
-    backgroundColor: "#D51007",
-  },
-  accountIcon: {
-    fontSize: 20,
-    color: "#FFFFFF",
-    fontWeight: "bold",
-  },
-  accountInfo: {
-    flex: 1,
-  },
-  accountName: {
-    fontSize: 16,
-    color: "#191414",
-  },
-  accountStatus: {
-    fontSize: 14,
-    color: "#666666",
-  },
-  disconnectButton: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: "#FF3B30",
-  },
-  disconnectText: {
-    fontSize: 14,
-    color: "#FF3B30",
-  },
-  connectButton: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 6,
-    backgroundColor: "#1DB954",
-  },
-  connectText: {
-    fontSize: 14,
-    color: "#FFFFFF",
   },
 });

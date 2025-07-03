@@ -26,6 +26,10 @@ interface RulesState {
   toggleDeviceRule: (id: string) => void;
   removeTimeRule: (id: string) => void;
   removeDeviceRule: (id: string) => void;
+  addTimeRule: (rule: TimeRule) => void;
+  addDeviceRule: (rule: DeviceRule) => void;
+  editTimeRule: (id: string, updated: Partial<TimeRule>) => void;
+  editDeviceRule: (id: string, updated: Partial<DeviceRule>) => void;
 }
 
 export const useRulesStore = create<RulesState>()(
@@ -84,6 +88,22 @@ export const useRulesStore = create<RulesState>()(
       removeDeviceRule: (id) => 
         set((state) => ({
           deviceRules: state.deviceRules.filter(rule => rule.id !== id)
+        })),
+      addTimeRule: (rule) =>
+        set((state) => ({
+          timeRules: [...state.timeRules, rule],
+        })),
+      addDeviceRule: (rule) =>
+        set((state) => ({
+          deviceRules: [...state.deviceRules, rule],
+        })),
+      editTimeRule: (id, updated) =>
+        set((state) => ({
+          timeRules: state.timeRules.map(rule => rule.id === id ? { ...rule, ...updated } : rule)
+        })),
+      editDeviceRule: (id, updated) =>
+        set((state) => ({
+          deviceRules: state.deviceRules.map(rule => rule.id === id ? { ...rule, ...updated } : rule)
         })),
     }),
     {

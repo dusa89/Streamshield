@@ -1,26 +1,33 @@
-import { View, Text, StyleSheet, ScrollView, Pressable, Switch, Alert } from "react-native";
+import { View, Text, StyleSheet, ScrollView, Pressable, Switch, Alert, Linking, useColorScheme } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { useAuthStore } from "@/stores/auth";
 import { useSpotifyAuth } from "@/hooks/useSpotifyAuth";
-import { 
-  User, 
-  Shield, 
-  Clock, 
-  Tag, 
-  Music, 
-  CreditCard, 
-  Bell, 
-  HelpCircle, 
-  LogOut,
-  ChevronRight
-} from "lucide-react-native";
+import { useThemeStore, ThemePreference } from "@/stores/theme";
+import React, { useState, useLayoutEffect } from "react";
+import FontAwesome from '@expo/vector-icons/FontAwesome';
+import { themes } from "@/constants/colors";
+import { useNavigation } from "@react-navigation/native";
 
 export default function SettingsScreen() {
   const router = useRouter();
   const { user } = useAuthStore();
-  const { handleLogout, isLoading } = useSpotifyAuth();
+  const { login, logout, loading, error, redirectUri } = useSpotifyAuth();
+  const { theme: themePref, colorTheme } = useThemeStore();
+  const colorScheme = useColorScheme();
+  const effectiveTheme = themePref === "auto" ? colorScheme ?? "light" : themePref;
+  const theme = themes[colorTheme][effectiveTheme];
+  const [isNotificationsEnabled, setIsNotificationsEnabled] = useState(true);
+  const navigation = useNavigation();
+  
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerStyle: { backgroundColor: theme.background },
+      headerTitleStyle: { color: theme.text },
+      headerTintColor: theme.text,
+    });
+  }, [navigation, theme]);
   
   const onLogout = async () => {
     Alert.alert(
@@ -32,162 +39,176 @@ export default function SettingsScreen() {
           text: "Logout", 
           style: "destructive",
           onPress: async () => {
-            const success = await handleLogout();
-            if (success) {
+            await logout();
               router.replace("/(auth)");
-            } else {
-              Alert.alert("Logout Failed", "There was a problem logging out. Please try again.");
-            }
           }
         }
       ]
     );
   };
   
-  return (
-    <SafeAreaView style={styles.container} edges={["bottom"]}>
-      <ScrollView style={styles.scrollView}>
-        <View style={styles.header}>
-          <Text style={styles.title}>Settings</Text>
+  const handleActivityTags = () => {
+    router.push("/settings/activity-tags");
+  };
+  const handleNotifications = () => {
+    router.push("/settings/notifications");
+  };
+  const handleSupport = () => {
+    router.push("/settings/support");
+  };
+  
+  // BEGIN DEBUG: Commenting out original settings UI
+  /*
+  <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}> 
+    <ScrollView style={styles.scrollView}>
+      <View style={styles.header}>
+        <Text style={[styles.title, { color: theme.text }]}>Settings</Text>
+      </View>
+      <View style={[styles.profileCard, { backgroundColor: theme.background, shadowColor: theme.border }] }>
+        <Image style={styles.profileImage} source={{ uri: user?.profileImageUrl }} />
+        <View style={styles.profileInfo}>
+          <Text style={[styles.profileName, { color: theme.text }]}>{user?.displayName}</Text>
+          <Text style={[styles.profileEmail, { color: theme.text }]}>{user?.email}</Text>
         </View>
-        
-        <Pressable 
-          style={styles.profileCard}
-          onPress={() => router.push("/settings/profile")}
-        >
-          <Image
-            source={{ uri: user?.profileImageUrl }}
-            style={styles.profileImage}
+      </View>
+      <View style={styles.sectionContainer}>
+        <Text style={[styles.sectionTitle, { color: theme.text }]}>Appearance</Text>
+        <View style={styles.themeRow}>
+          {(['light', 'dark', 'auto'] as ThemePreference[]).map((option) => {
+            const isSelected = themePref === option;
+            const buttonBackgroundColor = isSelected ? theme.tint : theme.background;
+            const buttonBorderColor = isSelected ? theme.tint : theme.border;
+            const textColor = isSelected ? theme.background : theme.text;
+            if (effectiveTheme === 'dark' && !isSelected) {
+              console.log(`Unselected Dark Mode Button ('${option}'): Applying text color: ${textColor}`);
+            }
+            return (
+              <Pressable
+                key={option}
+                style={[
+                  styles.themeOption,
+                  {
+                    backgroundColor: buttonBackgroundColor,
+                    borderColor: buttonBorderColor,
+                  },
+                ]}
+                onPress={() => setTheme(option)}
+              >
+                <Text style={[styles.themeOptionText, { color: textColor }]}> 
+                  {option === 'light' ? 'Light' : option === 'dark' ? 'Dark' : 'Auto'}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+        <Text style={[styles.themeDescription, { color: theme.text }]}>Auto: Follows your phone's system appearance</Text>
+      </View>
+      <View style={styles.sectionContainer}>
+        <Text style={[styles.sectionTitle, { color: theme.text }]}>Notifications</Text>
+        <View style={styles.settingItem}>
+          <View style={styles.settingIconContainer}>
+            <FontAwesome name="bell" size={20} color={theme.text} />
+          </View>
+          <View style={styles.settingContent}>
+            <Text style={[styles.settingTitle, { color: theme.text }]}>Notifications</Text>
+            <Text style={[styles.settingDescription, { color: theme.text }]}> 
+              {isNotificationsEnabled ? "Notifications are enabled" : "Notifications are disabled"}
+            </Text>
+          </View>
+          <Switch
+            value={isNotificationsEnabled}
+            onValueChange={(value) => setIsNotificationsEnabled(value)}
           />
-          <View style={styles.profileInfo}>
-            <Text style={styles.profileName}>{user?.displayName}</Text>
-            <Text style={styles.profileEmail}>{user?.email}</Text>
-          </View>
-          <ChevronRight size={20} color="#999999" />
-        </Pressable>
-        
-        <View style={styles.sectionContainer}>
-          <Text style={styles.sectionTitle}>Shield Settings</Text>
-          
-          <Pressable 
-            style={styles.settingItem}
-            onPress={() => router.push("/settings/blacklist")}
-          >
-            <View style={styles.settingIconContainer}>
-              <Music size={20} color="#1DB954" />
-            </View>
-            <View style={styles.settingContent}>
-              <Text style={styles.settingTitle}>Blacklist</Text>
-              <Text style={styles.settingDescription}>
-                Manage artists, genres, and songs to shield
-              </Text>
-            </View>
-            <ChevronRight size={20} color="#999999" />
-          </Pressable>
-          
-          <Pressable 
-            style={styles.settingItem}
-            onPress={() => router.push("/settings/rules")}
-          >
-            <View style={styles.settingIconContainer}>
-              <Clock size={20} color="#1DB954" />
-            </View>
-            <View style={styles.settingContent}>
-              <Text style={styles.settingTitle}>Shielding Rules</Text>
-              <Text style={styles.settingDescription}>
-                Set up automatic shielding schedules
-              </Text>
-            </View>
-            <ChevronRight size={20} color="#999999" />
-          </Pressable>
-          
-          <View style={styles.settingItem}>
-            <View style={styles.settingIconContainer}>
-              <Tag size={20} color="#1DB954" />
-            </View>
-            <View style={styles.settingContent}>
-              <Text style={styles.settingTitle}>Activity Tags</Text>
-              <Text style={styles.settingDescription}>
-                Create and manage listening activity tags
-              </Text>
-            </View>
-            <ChevronRight size={20} color="#999999" />
-          </View>
         </View>
-        
-        <View style={styles.sectionContainer}>
-          <Text style={styles.sectionTitle}>Account</Text>
-          
+      </View>
+      <View style={styles.sectionContainer}>
+        <Text style={[styles.sectionTitle, { color: theme.text }]}>Activity Tags</Text>
+        <View style={styles.settingItem}>
+          <View style={styles.settingIconContainer}>
+            <FontAwesome name="tag" size={20} color={theme.text} />
+          </View>
+          <View style={styles.settingContent}>
+            <Text style={[styles.settingTitle, { color: theme.text }]}>Activity Tags</Text>
+            <Text style={[styles.settingDescription, { color: theme.text }]}> 
+              Manage your activity tags
+            </Text>
+          </View>
+          <FontAwesome name="chevron-right" size={20} color={theme.text} />
+        </View>
+      </View>
+      <View style={styles.sectionContainer}>
+        <Text style={[styles.sectionTitle, { color: theme.text }]}>Notifications</Text>
+        <View style={styles.settingItem}>
+          <View style={styles.settingIconContainer}>
+            <FontAwesome name="bell" size={20} color={theme.text} />
+          </View>
+          <View style={styles.settingContent}>
+            <Text style={[styles.settingTitle, { color: theme.text }]}>Notifications</Text>
+            <Text style={[styles.settingDescription, { color: theme.text }]}> 
+              Manage your notifications
+            </Text>
+          </View>
+          <FontAwesome name="chevron-right" size={20} color={theme.text} />
+        </View>
+      </View>
+      <View style={styles.sectionContainer}>
+        <Text style={[styles.sectionTitle, { color: theme.text }]}>Support</Text>
+        <View style={styles.settingItem}>
+          <View style={styles.settingIconContainer}>
+            <FontAwesome name="support" size={20} color={theme.text} />
+          </View>
+          <View style={styles.settingContent}>
+            <Text style={[styles.settingTitle, { color: theme.text }]}>Support</Text>
+            <Text style={[styles.settingDescription, { color: theme.text }]}> 
+              Get help and support
+            </Text>
+          </View>
+          <FontAwesome name="chevron-right" size={20} color={theme.text} />
+        </View>
+      </View>
+      <View style={styles.logoutButton}>
+        <Text style={styles.logoutText}>Logout</Text>
+      </View>
+      <View style={styles.versionContainer}>
+        <Text style={[styles.versionText, { color: theme.text }]}>Version 1.0.0</Text>
+      </View>
+    </ScrollView>
+  </SafeAreaView>
+  */
+  // END DEBUG: Commented out original settings UI
+
+  // Add this new return statement for debugging purposes
+  return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: theme.background }}>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+              <Text style={{ fontSize: 24, fontWeight: 'bold', marginBottom: 20, textAlign: 'center', color: theme.text }}>
+                Settings Debug Mode
+              </Text>
+              <Text style={{ fontSize: 16, textAlign: 'center', marginBottom: 40, color: theme.text }}>
+                This is a simplified view to test navigation. Please tap the button below.
+              </Text>
           <Pressable 
-            style={styles.settingItem}
-            onPress={() => router.push("/settings/subscription")}
-          >
-            <View style={styles.settingIconContainer}>
-              <CreditCard size={20} color="#1DB954" />
-            </View>
-            <View style={styles.settingContent}>
-              <Text style={styles.settingTitle}>Subscription</Text>
-              <Text style={styles.settingDescription}>
-                {user?.subscriptionTier === "free" 
-                  ? "Free Plan - Upgrade for more features" 
-                  : user?.subscriptionTier === "premium" 
-                    ? "Premium Plan" 
-                    : "Pro Plan"}
-              </Text>
-            </View>
-            <ChevronRight size={20} color="#999999" />
-          </Pressable>
-          
-          <View style={styles.settingItem}>
-            <View style={styles.settingIconContainer}>
-              <Bell size={20} color="#1DB954" />
-            </View>
-            <View style={styles.settingContent}>
-              <Text style={styles.settingTitle}>Notifications</Text>
-              <Text style={styles.settingDescription}>
-                Manage app notifications
-              </Text>
-            </View>
-            <Switch 
-              trackColor={{ false: "#DDDDDD", true: "#1DB954" }}
-              thumbColor="#FFFFFF"
-              value={true}
-            />
-          </View>
-        </View>
-        
-        <View style={styles.sectionContainer}>
-          <Text style={styles.sectionTitle}>Support</Text>
-          
-          <View style={styles.settingItem}>
-            <View style={styles.settingIconContainer}>
-              <HelpCircle size={20} color="#1DB954" />
-            </View>
-            <View style={styles.settingContent}>
-              <Text style={styles.settingTitle}>Help & Support</Text>
-              <Text style={styles.settingDescription}>
-                Get help with using StreamShield
-              </Text>
-            </View>
-            <ChevronRight size={20} color="#999999" />
-          </View>
-        </View>
-        
-        <Pressable 
-          style={styles.logoutButton}
-          onPress={onLogout}
-          disabled={isLoading}
-        >
-          <LogOut size={20} color="#FF3B30" />
-          <Text style={styles.logoutText}>
-            {isLoading ? "Logging Out..." : "Log Out"}
+                style={{
+                    backgroundColor: '#1DB954',
+                    paddingVertical: 15,
+                    paddingHorizontal: 30,
+                    borderRadius: 30,
+                }}
+                onPress={() => {
+                    console.log("--- DEBUG: Attempting to navigate to /settings/support ---");
+                    try {
+                        router.push("/settings/support");
+                      } catch (e: any) {
+                        console.error("--- DEBUG: Navigation failed with error: ---", e);
+                        Alert.alert("Navigation Failed", e.message);
+                    }
+                }}
+            >
+                <Text style={{ color: 'white', fontSize: 18, fontWeight: 'bold' }}>
+                    Test Navigate to Support
           </Text>
         </Pressable>
-        
-        <View style={styles.versionContainer}>
-          <Text style={styles.versionText}>StreamShield v1.0.0</Text>
         </View>
-      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -195,7 +216,6 @@ export default function SettingsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#FFFFFF",
   },
   scrollView: {
     flex: 1,
@@ -305,5 +325,36 @@ const styles = StyleSheet.create({
   versionText: {
     fontSize: 14,
     color: "#999999",
+  },
+  themeRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 10,
+    marginBottom: 5,
+    paddingHorizontal: 10,
+  },
+  themeOption: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 10,
+    marginHorizontal: 5,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  themeOptionText: {
+    fontWeight: 'bold',
+  },
+  themeOptionSelected: {
+    backgroundColor: '#1DB954',
+    borderColor: '#1DB954',
+  },
+  themeOptionTextSelected: {
+    color: '#FFFFFF',
+  },
+  themeDescription: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 4,
+    marginLeft: 10,
   },
 });

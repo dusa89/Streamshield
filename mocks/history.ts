@@ -6,6 +6,7 @@ export interface HistoryItem {
   shielded: boolean;
   tags?: string[];
   tracks?: number;
+  albumArt?: string;
 }
 
 export const mockShieldHistory: HistoryItem[] = [

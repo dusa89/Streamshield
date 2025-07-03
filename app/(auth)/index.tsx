@@ -1,8 +1,7 @@
-import { View, Text, StyleSheet, Image, Pressable } from "react-native";
+import { View, Text, StyleSheet, Pressable } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Shield } from "lucide-react-native";
 
 export default function WelcomeScreen() {
   const router = useRouter();
@@ -17,7 +16,6 @@ export default function WelcomeScreen() {
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.content}>
           <View style={styles.logoContainer}>
-            <Shield size={80} color="#FFFFFF" />
             <Text style={styles.appName}>StreamShield</Text>
           </View>
           
