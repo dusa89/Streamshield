@@ -47,3 +47,7 @@ yarn-error.*
 # typescript
 *.tsbuildinfo
 .vercel
+
+# NPM dependency lock files
+package-lock.json
+npm-shrinkwrap.json
