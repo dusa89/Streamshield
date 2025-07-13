@@ -36,6 +36,7 @@
     "dotenv": "^16.6.1",
     "expo": "53.0.19",
     "expo-auth-session": "~6.2.0",
+    "expo-background-task": "~0.2.8",
     "expo-blur": "~14.1.5",
     "expo-clipboard": "~7.1.4",
     "expo-constants": "~17.1.6",
@@ -69,8 +70,7 @@
     "react-native-web": "^0.20.0",
     "superjson": "^2.2.2",
     "zod": "^3.25.53",
-    "zustand": "^5.0.5",
-    "expo-background-task": "~0.2.8"
+    "zustand": "^5.0.5"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
@@ -79,6 +79,7 @@
     "@types/jest": "^30.0.0",
     "@types/node": "^24.0.10",
     "@types/react": "~19.0.10",
+    "@types/react-native": "^0.72.8",
     "@typescript-eslint/eslint-plugin": "^8.34.1",
     "@typescript-eslint/parser": "^8.34.1",
     "eslint": "^9.29.0",

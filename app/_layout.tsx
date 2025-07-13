@@ -34,85 +34,81 @@ const queryClient = new QueryClient();
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
 
+function AuthGuard({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated, isHydrating } = useAuthStore();
+  const segments = useSegments();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (isHydrating) {
+      return;
+    }
+
+    const inAuthGroup = segments[0] === "(auth)";
+
+    if (isAuthenticated && inAuthGroup) {
+      // If the user is authenticated and in the auth group,
+      // redirect them to the main app.
+      router.replace("/(tabs)");
+    } else if (!isAuthenticated && !inAuthGroup) {
+      // If the user is not authenticated and not in the auth group,
+      // redirect them to the auth group.
+      router.replace("/(auth)");
+    }
+  }, [isAuthenticated, isHydrating, segments, router]);
+
+  // You can return a loading state here while checking for authentication.
+  if (isHydrating) {
+    return null; // Or a loading spinner
+  }
+
+  return <>{children}</>;
+}
+
 export default function RootLayout() {
-  const [fontsLoaded] = useFonts({
+  const [fontsLoaded, fontError] = useFonts({
     Inter_400Regular,
     Inter_600SemiBold,
     Inter_700Bold,
   });
 
-  const colorScheme = useColorScheme();
   const { theme: themePref, colorTheme } = useThemeStore();
+  const colorScheme = useColorScheme();
   const effectiveTheme =
-    themePref === "auto" ? (colorScheme ?? "light") : themePref;
+    themePref === "auto" ? colorScheme ?? "light" : themePref;
   const theme = themes[colorTheme][effectiveTheme];
 
-  const onLayoutRootView = useCallback(async () => {
-    if (fontsLoaded) {
-      await SplashScreen.hideAsync();
-    }
-  }, [fontsLoaded]);
-
   useEffect(() => {
-    if (fontsLoaded) {
+    if (fontsLoaded || fontError) {
       SplashScreen.hideAsync();
       registerBackgroundTasks();
     }
-  }, [fontsLoaded]);
+  }, [fontsLoaded, fontError]);
 
-  if (!fontsLoaded) {
-    // Show nothing until fonts are loaded
+  if (!fontsLoaded && !fontError) {
     return null;
   }
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <>
-        <ExpoStatusBar style={effectiveTheme === "dark" ? "light" : "dark"} />
-        <trpc.Provider client={trpcClient} queryClient={queryClient}>
-          <QueryClientProvider client={queryClient}>
+      <trpc.Provider client={trpcClient} queryClient={queryClient}>
+        <QueryClientProvider client={queryClient}>
+          <AuthGuard>
             <SafeAreaView
               style={{ flex: 1, backgroundColor: theme.background }}
             >
-              <View style={{ flex: 1 }} onLayout={onLayoutRootView}>
-                <RootLayoutNav />
-              </View>
+              <ExpoStatusBar
+                style={effectiveTheme === "dark" ? "light" : "dark"}
+              />
+              <Stack screenOptions={{ headerShown: false }}>
+                <Stack.Screen name="(tabs)" />
+                <Stack.Screen name="(auth)" />
+                <Stack.Screen name="settings" />
+              </Stack>
             </SafeAreaView>
-          </QueryClientProvider>
-        </trpc.Provider>
-      </>
+          </AuthGuard>
+        </QueryClientProvider>
+      </trpc.Provider>
     </GestureHandlerRootView>
-  );
-}
-
-function RootLayoutNav() {
-  const { isAuthenticated, isHydrating } = useAuthStore();
-  const segments = useSegments();
-  const router = useRouter();
-
-  // Return a loading indicator or null while the store is rehydrating.
-  if (isHydrating) {
-    return null; // Or <ActivityIndicator />
-  }
-
-  useEffect(() => {
-    const inTabsOrSettingsGroup =
-      segments[0] === "(tabs)" || segments[0] === "settings";
-
-    if (isAuthenticated && !inTabsOrSettingsGroup) {
-      router.replace("/(tabs)");
-    } else if (!isAuthenticated && !inTabsOrSettingsGroup) {
-      // No action needed, user is already in the auth flow.
-    } else if (!isAuthenticated && inTabsOrSettingsGroup) {
-      router.replace("/(auth)");
-    }
-  }, [isAuthenticated, segments]);
-
-  return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-      <Stack.Screen name="settings" options={{ headerShown: false }} />
-    </Stack>
   );
 }
