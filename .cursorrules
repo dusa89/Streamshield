@@ -143,6 +143,59 @@ You are an advanced AI coding assistant working on complex, real-world projects.
 - Monitor API response times and failure rates.
 - Add analytics for user behavior (with privacy considerations).
 
+#### 24. BugBot Integration & Automated PR Workflow
+
+**MANDATORY WORKFLOW FOR ALL CODE CHANGES:**
+
+- **NEVER make changes directly to the main branch** - Always create a feature branch first
+- **ALWAYS follow this exact process** when making any code changes:
+
+1. **Create Feature Branch:**
+   - Use descriptive branch names: `feature/description-of-changes`
+   - Example: `feature/fix-login-button` or `feature/add-user-profile`
+
+2. **Make Changes:**
+   - Implement the requested changes
+   - Test thoroughly before committing
+   - Follow all existing coding standards
+
+3. **Commit and Push:**
+   - Use clear, descriptive commit messages
+   - Push the feature branch to GitHub
+   - The automated workflow will create a Pull Request
+
+4. **Pull Request Creation:**
+   - GitHub Actions automatically creates a PR to main
+   - PR includes detailed description with BugBot integration info
+   - BugBot automatically reviews the PR (if enabled in Cursor dashboard)
+
+5. **User Notification:**
+   - **ALWAYS remind the user to check the PR** on GitHub
+   - Provide the direct link to the PR
+   - Explain that BugBot will review and add comments
+   - Tell user to look for BugBot's feedback
+
+6. **Wait for User Review:**
+   - **NEVER merge to main without explicit user permission**
+   - Ask user to check BugBot's comments
+   - If BugBot finds issues, fix them before merging
+   - Only merge after user gives approval
+
+**BugBot Review Process:**
+- BugBot scans for security issues, code quality problems, and best practices
+- BugBot comments appear on the PR (user must check GitHub to see them)
+- If issues found, fix them and update the PR
+- If no issues, proceed with user approval
+
+**User Communication:**
+- Always explain the process in simple terms
+- Provide step-by-step instructions for checking PRs
+- Remind user they have full control over what gets merged
+- Use clear, non-technical language when explaining
+
+**Example User Message:**
+"I've created a Pull Request with your changes. Please check it on GitHub and let me know what BugBot says! The PR is at: [link]. BugBot will review it automatically and add comments if there are any issues."
+
 ### If you encounter a new or unexpected issue
 
 - Pause, analyze the root cause, and document it.
@@ -181,7 +234,7 @@ You are an advanced AI coding assistant working on complex, real-world projects.
 - Always check actual code and files thoroughly instead of making assumptions
 - Always remove temporary or ad-hoc test scripts once they are no longer needed
 
-#### 24. Comprehensive Refactoring & Usage Update Rule
+#### 25. Comprehensive Refactoring & Usage Update Rule
 
 - Whenever you change a function, type, prop, or core logic:
   - Use both semantic and regex search to find *every* usage of the changed symbol across the entire codebase (including dynamic, indirect, and test usages).
@@ -193,39 +246,37 @@ You are an advanced AI coding assistant working on complex, real-world projects.
   - Summarize what was changed, why, and what files/functions were affected.
   - Never consider a refactor or core logic change "done" until all usages and dependencies are updated and tested.
 
-#### 25. Automated Symbol/Usage Mapping
+#### 26. Automated Symbol/Usage Mapping
 
 - When making a change, use both semantic and regex search to build a complete map of all usages (including dynamic, indirect, and test usages).
 - Always check for usage in comments, documentation, and configuration files.
 
-#### 26. Cross-Platform & Device Testing
+#### 27. Cross-Platform & Device Testing
 
 - For React Native/Expo: Test changes on both iOS and Android simulators/emulators.
 - Consider device-specific edge cases (permissions, file system, notifications, etc.).
 
-#### 27. Dependency & Version Awareness
+#### 28. Dependency & Version Awareness
 
 - When updating or adding dependencies, check for breaking changes, peer dependencies, and compatibility with the current project setup.
 - Run `npm audit` or similar tools to check for vulnerabilities after dependency changes.
 
-#### 28. Rollback & Recovery Planning
+#### 29. Rollback & Recovery Planning
 
 - For any major or breaking change, provide a clear rollback plan or migration steps.
 - If a change could impact user data, ensure there's a backup or recovery strategy.
 
-#### 29. User Feedback Loops
+#### 30. User Feedback Loops
 
 - After deploying significant changes, monitor logs and user feedback for regressions or new issues.
 - Be proactive in rolling out hotfixes or patches if problems are detected.
 
-#### 30. Continuous Integration/Continuous Deployment (CI/CD)
+#### 31. Continuous Integration/Continuous Deployment (CI/CD)
 
 - Ensure all changes pass CI checks before merging.
 - Automate builds, tests, and deployments where possible.
 
-#### 31. Code Review Simulation
+#### 32. Code Review Simulation
 
 - Before finalizing a change, simulate a code review: check for clarity, maintainability, and adherence to project standards.
 - Leave comments or TODOs for future improvements if something can't be addressed immediately.
- 
- 
