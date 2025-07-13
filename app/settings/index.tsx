@@ -1,26 +1,35 @@
-import { View, Text, StyleSheet, ScrollView, Pressable, Switch, Alert, Linking, useColorScheme } from "react-native";
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  Pressable,
+  Switch,
+  useColorScheme,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { useAuthStore } from "@/stores/auth";
-import { useSpotifyAuth } from "@/hooks/useSpotifyAuth";
 import { useThemeStore, ThemePreference } from "@/stores/theme";
-import React, { useState, useLayoutEffect } from "react";
-import FontAwesome from '@expo/vector-icons/FontAwesome';
+import React, { useLayoutEffect } from "react";
+import FontAwesome from "@expo/vector-icons/FontAwesome";
 import { themes } from "@/constants/colors";
 import { useNavigation } from "@react-navigation/native";
+import { useShieldStore } from "@/stores/shield";
 
 export default function SettingsScreen() {
   const router = useRouter();
   const { user } = useAuthStore();
-  const { login, logout, loading, error, redirectUri } = useSpotifyAuth();
-  const { theme: themePref, colorTheme } = useThemeStore();
+  const { theme: themePref, colorTheme, setTheme } = useThemeStore();
   const colorScheme = useColorScheme();
-  const effectiveTheme = themePref === "auto" ? colorScheme ?? "light" : themePref;
+  const effectiveTheme =
+    themePref === "auto" ? (colorScheme ?? "light") : themePref;
   const theme = themes[colorTheme][effectiveTheme];
-  const [isNotificationsEnabled, setIsNotificationsEnabled] = useState(true);
   const navigation = useNavigation();
-  
+  const { hideAutoDisableWarning, setHideAutoDisableWarning } =
+    useShieldStore();
+
   useLayoutEffect(() => {
     navigation.setOptions({
       headerStyle: { backgroundColor: theme.background },
@@ -28,25 +37,7 @@ export default function SettingsScreen() {
       headerTintColor: theme.text,
     });
   }, [navigation, theme]);
-  
-  const onLogout = async () => {
-    Alert.alert(
-      "Confirm Logout",
-      "Are you sure you want to log out?",
-      [
-        { text: "Cancel", style: "cancel" },
-        { 
-          text: "Logout", 
-          style: "destructive",
-          onPress: async () => {
-            await logout();
-              router.replace("/(auth)");
-          }
-        }
-      ]
-    );
-  };
-  
+
   const handleActivityTags = () => {
     router.push("/settings/activity-tags");
   };
@@ -57,158 +48,293 @@ export default function SettingsScreen() {
     router.push("/settings/support");
   };
   
-  // BEGIN DEBUG: Commenting out original settings UI
-  /*
-  <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}> 
-    <ScrollView style={styles.scrollView}>
-      <View style={styles.header}>
-        <Text style={[styles.title, { color: theme.text }]}>Settings</Text>
-      </View>
-      <View style={[styles.profileCard, { backgroundColor: theme.background, shadowColor: theme.border }] }>
-        <Image style={styles.profileImage} source={{ uri: user?.profileImageUrl }} />
-        <View style={styles.profileInfo}>
-          <Text style={[styles.profileName, { color: theme.text }]}>{user?.displayName}</Text>
-          <Text style={[styles.profileEmail, { color: theme.text }]}>{user?.email}</Text>
+  const handlePlaylistManagement = () => {
+    router.push("/settings/playlist-management");
+  };
+
+  console.log("DEBUG: hideAutoDisableWarning =", hideAutoDisableWarning);
+
+  return (
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: theme.background }]}
+    >
+      {/* DEBUG: This is app/settings/index.tsx */}
+      {/* Shield Warnings toggle and debug label only, no reset button */}
+      {/* Remove the static Shield Warnings header and margin at the top */}
+      <ScrollView style={styles.scrollView}>
+        <View style={styles.header}>
+          <Text style={[styles.title, { color: theme.text }]}>Settings</Text>
         </View>
-      </View>
-      <View style={styles.sectionContainer}>
-        <Text style={[styles.sectionTitle, { color: theme.text }]}>Appearance</Text>
-        <View style={styles.themeRow}>
-          {(['light', 'dark', 'auto'] as ThemePreference[]).map((option) => {
-            const isSelected = themePref === option;
-            const buttonBackgroundColor = isSelected ? theme.tint : theme.background;
-            const buttonBorderColor = isSelected ? theme.tint : theme.border;
-            const textColor = isSelected ? theme.background : theme.text;
-            if (effectiveTheme === 'dark' && !isSelected) {
-              console.log(`Unselected Dark Mode Button ('${option}'): Applying text color: ${textColor}`);
-            }
-            return (
-              <Pressable
-                key={option}
-                style={[
-                  styles.themeOption,
-                  {
-                    backgroundColor: buttonBackgroundColor,
-                    borderColor: buttonBorderColor,
-                  },
-                ]}
-                onPress={() => setTheme(option)}
-              >
-                <Text style={[styles.themeOptionText, { color: textColor }]}> 
-                  {option === 'light' ? 'Light' : option === 'dark' ? 'Dark' : 'Auto'}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-        <Text style={[styles.themeDescription, { color: theme.text }]}>Auto: Follows your phone's system appearance</Text>
-      </View>
-      <View style={styles.sectionContainer}>
-        <Text style={[styles.sectionTitle, { color: theme.text }]}>Notifications</Text>
-        <View style={styles.settingItem}>
+        <Pressable
+          style={[
+            styles.profileCard,
+            { backgroundColor: theme.background, shadowColor: theme.border },
+          ]}
+          onPress={() => router.push("/settings/profile")}
+        >
+          <Image
+            style={styles.profileImage}
+            source={{ uri: user?.profileImageUrl }}
+          />
+          <View style={styles.profileInfo}>
+            <Text style={[styles.profileName, { color: theme.text }]}>
+              {user?.displayName}
+            </Text>
+            <Text style={[styles.profileEmail, { color: theme.text }]}>
+              {user?.email}
+            </Text>
+          </View>
+          <FontAwesome name="chevron-right" size={18} color={theme.text} />
+        </Pressable>
+        {/* Move Shield Warnings toggle here */}
+        <View
+          style={[
+            styles.settingItem,
+            {
+              borderWidth: 2,
+              borderColor: theme.tint,
+              backgroundColor: theme.background,
+              marginHorizontal: 16,
+              borderRadius: 12,
+              marginBottom: 18,
+            },
+          ]}
+        >
           <View style={styles.settingIconContainer}>
-            <FontAwesome name="bell" size={20} color={theme.text} />
+            <FontAwesome name="shield" size={20} color={theme.text} />
           </View>
           <View style={styles.settingContent}>
-            <Text style={[styles.settingTitle, { color: theme.text }]}>Notifications</Text>
-            <Text style={[styles.settingDescription, { color: theme.text }]}> 
-              {isNotificationsEnabled ? "Notifications are enabled" : "Notifications are disabled"}
+            <Text style={[styles.settingTitle, { color: theme.text }]}>
+              Show Auto-disable Warning
+            </Text>
+            <Text style={[styles.settingDescription, { color: theme.text }]}>
+              Show confirmation when disabling the auto-disable timer
             </Text>
           </View>
           <Switch
-            value={isNotificationsEnabled}
-            onValueChange={(value) => setIsNotificationsEnabled(value)}
+            value={!hideAutoDisableWarning}
+            onValueChange={(v: boolean) => setHideAutoDisableWarning(!v)}
           />
         </View>
-      </View>
-      <View style={styles.sectionContainer}>
-        <Text style={[styles.sectionTitle, { color: theme.text }]}>Activity Tags</Text>
-        <View style={styles.settingItem}>
+        {/* Appearance (Theme) section follows */}
+        <View style={styles.sectionContainer}>
+          <Text style={[styles.sectionTitle, { color: theme.text }]}>
+            Appearance
+          </Text>
+          <View style={styles.themeRow}>
+            {(["light", "dark", "auto"] as ThemePreference[]).map((option) => {
+              const isSelected = themePref === option;
+              const buttonBackgroundColor = isSelected
+                ? theme.tint
+                : theme.background;
+              const buttonBorderColor = isSelected ? theme.tint : theme.border;
+              const textColor = isSelected ? theme.background : theme.text;
+              return (
+                <Pressable
+                  key={option}
+                  style={[
+                    styles.themeOption,
+                    {
+                      backgroundColor: buttonBackgroundColor,
+                      borderColor: buttonBorderColor,
+                    },
+                  ]}
+                  onPress={() => setTheme(option)}
+                >
+                  <Text style={[styles.themeOptionText, { color: textColor }]}>
+                    {option === "light"
+                      ? "Light"
+                      : option === "dark"
+                        ? "Dark"
+                        : "Auto"}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+          <Text style={[styles.themeDescription, { color: theme.text }]}>
+            Auto: Follows your phone's system appearance
+          </Text>
+          {/* Color Theme Selector */}
+          <Text
+            style={[styles.sectionTitle, { color: theme.text, marginTop: 18 }]}
+          >
+            Color Theme
+          </Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={{ marginTop: 8, marginBottom: 8 }}
+          >
+            {Object.entries(themes).map(([key, value]) => {
+              const isSelected = colorTheme === key;
+              const previewColors = [
+                value[effectiveTheme].background,
+                value[effectiveTheme].tint,
+                value[effectiveTheme].tabIconSelected,
+              ];
+              return (
+                <Pressable
+                  key={key}
+                  style={[
+                    styles.colorThemeOption,
+                    colorTheme === key && styles.themeOptionSelected,
+                  ]}
+                  onPress={() => useThemeStore.getState().setColorTheme(key as keyof typeof themes)}
+                >
+                  <View
+                    style={{
+                      width: 48,
+                      height: 24,
+                      borderRadius: 6,
+                      marginBottom: 4,
+                      overflow: "hidden",
+                      flexDirection: "row",
+                    }}
+                  >
+                    {previewColors.map((c, i) => (
+                      <View key={i} style={{ flex: 1, backgroundColor: c }} />
+                    ))}
+                  </View>
+                  <Text
+                    style={{
+                      color: theme.text,
+                      fontSize: 12,
+                      fontWeight: isSelected ? "bold" : "normal",
+                      textAlign: "center",
+                    }}
+                  >
+                    {key
+                      .replace(/([A-Z])/g, " $1")
+                      .replace(/^./, (str) => str.toUpperCase())}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        </View>
+        <View
+          style={{
+            height: 1,
+            backgroundColor: theme.border,
+            marginHorizontal: 16,
+            marginBottom: 16,
+          }}
+        />
+        <Pressable
+          style={[
+            styles.sectionContainer,
+            styles.settingsNavItem,
+            { backgroundColor: theme.background, borderColor: theme.border },
+          ]}
+          onPress={handleActivityTags}
+        >
           <View style={styles.settingIconContainer}>
             <FontAwesome name="tag" size={20} color={theme.text} />
           </View>
-          <View style={styles.settingContent}>
-            <Text style={[styles.settingTitle, { color: theme.text }]}>Activity Tags</Text>
-            <Text style={[styles.settingDescription, { color: theme.text }]}> 
-              Manage your activity tags
-            </Text>
-          </View>
-          <FontAwesome name="chevron-right" size={20} color={theme.text} />
-        </View>
-      </View>
-      <View style={styles.sectionContainer}>
-        <Text style={[styles.sectionTitle, { color: theme.text }]}>Notifications</Text>
-        <View style={styles.settingItem}>
+          <Text style={[styles.settingTitle, { color: theme.text }]}>
+            Activity Tags
+          </Text>
+          <FontAwesome
+            name="chevron-right"
+            size={18}
+            color={theme.text}
+            style={{ marginLeft: "auto" }}
+          />
+        </Pressable>
+        <Pressable
+          style={[
+            styles.sectionContainer,
+            styles.settingsNavItem,
+            { backgroundColor: theme.background, borderColor: theme.border },
+          ]}
+          onPress={handleNotifications}
+        >
           <View style={styles.settingIconContainer}>
             <FontAwesome name="bell" size={20} color={theme.text} />
           </View>
-          <View style={styles.settingContent}>
-            <Text style={[styles.settingTitle, { color: theme.text }]}>Notifications</Text>
-            <Text style={[styles.settingDescription, { color: theme.text }]}> 
-              Manage your notifications
-            </Text>
-          </View>
-          <FontAwesome name="chevron-right" size={20} color={theme.text} />
-        </View>
-      </View>
-      <View style={styles.sectionContainer}>
-        <Text style={[styles.sectionTitle, { color: theme.text }]}>Support</Text>
-        <View style={styles.settingItem}>
-          <View style={styles.settingIconContainer}>
-            <FontAwesome name="support" size={20} color={theme.text} />
-          </View>
-          <View style={styles.settingContent}>
-            <Text style={[styles.settingTitle, { color: theme.text }]}>Support</Text>
-            <Text style={[styles.settingDescription, { color: theme.text }]}> 
-              Get help and support
-            </Text>
-          </View>
-          <FontAwesome name="chevron-right" size={20} color={theme.text} />
-        </View>
-      </View>
-      <View style={styles.logoutButton}>
-        <Text style={styles.logoutText}>Logout</Text>
-      </View>
-      <View style={styles.versionContainer}>
-        <Text style={[styles.versionText, { color: theme.text }]}>Version 1.0.0</Text>
-      </View>
-    </ScrollView>
-  </SafeAreaView>
-  */
-  // END DEBUG: Commented out original settings UI
-
-  // Add this new return statement for debugging purposes
-  return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: theme.background }}>
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
-              <Text style={{ fontSize: 24, fontWeight: 'bold', marginBottom: 20, textAlign: 'center', color: theme.text }}>
-                Settings Debug Mode
-              </Text>
-              <Text style={{ fontSize: 16, textAlign: 'center', marginBottom: 40, color: theme.text }}>
-                This is a simplified view to test navigation. Please tap the button below.
-              </Text>
-          <Pressable 
-                style={{
-                    backgroundColor: '#1DB954',
-                    paddingVertical: 15,
-                    paddingHorizontal: 30,
-                    borderRadius: 30,
-                }}
-                onPress={() => {
-                    console.log("--- DEBUG: Attempting to navigate to /settings/support ---");
-                    try {
-                        router.push("/settings/support");
-                      } catch (e: any) {
-                        console.error("--- DEBUG: Navigation failed with error: ---", e);
-                        Alert.alert("Navigation Failed", e.message);
-                    }
-                }}
-            >
-                <Text style={{ color: 'white', fontSize: 18, fontWeight: 'bold' }}>
-                    Test Navigate to Support
+          <Text style={[styles.settingTitle, { color: theme.text }]}>
+            Notifications
           </Text>
+          <FontAwesome
+            name="chevron-right"
+            size={18}
+            color={theme.text}
+            style={{ marginLeft: "auto" }}
+          />
         </Pressable>
+        <Pressable
+          style={[
+            styles.sectionContainer,
+            styles.settingsNavItem,
+            { backgroundColor: theme.background, borderColor: theme.border },
+          ]}
+          onPress={handlePlaylistManagement}
+        >
+          <View style={styles.settingIconContainer}>
+            <FontAwesome name="list" size={20} color={theme.text} />
+          </View>
+          <Text style={[styles.settingTitle, { color: theme.text }]}>
+            Playlist Management
+          </Text>
+          <FontAwesome
+            name="chevron-right"
+            size={18}
+            color={theme.text}
+            style={{ marginLeft: "auto" }}
+          />
+        </Pressable>
+        <Pressable
+          style={[
+            styles.sectionContainer,
+            styles.settingsNavItem,
+            { backgroundColor: theme.background, borderColor: theme.border },
+          ]}
+          onPress={() => router.push("/settings/subscription")}
+        >
+          <View style={styles.settingIconContainer}>
+            <FontAwesome name="credit-card" size={20} color={theme.text} />
+          </View>
+          <Text style={[styles.settingTitle, { color: theme.text }]}>
+            Subscription
+          </Text>
+          <FontAwesome
+            name="chevron-right"
+            size={18}
+            color={theme.text}
+            style={{ marginLeft: "auto" }}
+          />
+        </Pressable>
+        <Pressable
+          style={[
+            styles.sectionContainer,
+            styles.settingsNavItem,
+            { backgroundColor: theme.background, borderColor: theme.border },
+          ]}
+          onPress={handleSupport}
+        >
+          <View style={styles.settingIconContainer}>
+            <FontAwesome name="question-circle" size={20} color={theme.text} />
+          </View>
+          <Text style={[styles.settingTitle, { color: theme.text }]}>
+            Help & Support
+          </Text>
+          <FontAwesome
+            name="chevron-right"
+            size={18}
+            color={theme.text}
+            style={{ marginLeft: "auto" }}
+          />
+        </Pressable>
+        <View style={styles.logoutButton}>
+          <Text style={styles.logoutText}>Logout</Text>
         </View>
+        <View style={styles.versionContainer}>
+          <Text style={[styles.versionText, { color: theme.text }]}>
+            Version 1.0.0
+          </Text>
+        </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -231,7 +357,6 @@ const styles = StyleSheet.create({
   profileCard: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#FFFFFF",
     marginHorizontal: 16,
     marginBottom: 24,
     padding: 16,
@@ -274,7 +399,6 @@ const styles = StyleSheet.create({
   settingItem: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#FFFFFF",
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderBottomWidth: 1,
@@ -284,7 +408,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: "#F5F5F5",
+    // backgroundColor: "#F5F5F5",
     justifyContent: "center",
     alignItems: "center",
     marginRight: 12,
@@ -327,34 +451,56 @@ const styles = StyleSheet.create({
     color: "#999999",
   },
   themeRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
     marginTop: 10,
     marginBottom: 5,
     paddingHorizontal: 10,
   },
   themeOption: {
     flex: 1,
-    alignItems: 'center',
+    alignItems: "center",
     paddingVertical: 10,
     marginHorizontal: 5,
     borderRadius: 8,
     borderWidth: 1,
   },
   themeOptionText: {
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   themeOptionSelected: {
-    backgroundColor: '#1DB954',
-    borderColor: '#1DB954',
+    backgroundColor: "#1DB954",
+    borderColor: "#1DB954",
   },
   themeOptionTextSelected: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
   },
   themeDescription: {
     fontSize: 12,
-    color: '#666',
+    color: "#666",
     marginTop: 4,
     marginLeft: 10,
+  },
+  settingsNavItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    marginHorizontal: 16,
+    marginBottom: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  colorThemeOption: {
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+    padding: 8,
+    borderRadius: 8,
+    minWidth: 70,
   },
 });

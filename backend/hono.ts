@@ -21,7 +21,7 @@ app.use(
     endpoint: "/api/trpc",
     router: appRouter,
     createContext,
-  })
+  }),
 );
 
 // Simple health check endpoint
@@ -33,7 +33,7 @@ app.get("/", (c) => {
 app.post("/api/spotify/exchange", async (c) => {
   try {
     const { code, redirectUri } = await c.req.json();
-    
+
     if (!code) {
       return c.json({ error: "Authorization code is required" }, 400);
     }
@@ -45,46 +45,47 @@ app.post("/api/spotify/exchange", async (c) => {
     const CLIENT_ID = process.env.SPOTIFY_CLIENT_ID;
     const CLIENT_SECRET = process.env.SPOTIFY_CLIENT_SECRET;
 
-    if (!CLIENT_ID || !CLIENT_SECRET) {
+    if (!CLIENT_ID ?? !CLIENT_SECRET) {
       console.error("Missing Spotify credentials in environment variables");
       return c.json({ error: "Server configuration error" }, 500);
     }
 
     // Create Basic Auth header
-    const credentials = Buffer.from(`${CLIENT_ID}:${CLIENT_SECRET}`).toString('base64');
-    
+    const credentials = Buffer.from(`${CLIENT_ID}:${CLIENT_SECRET}`).toString(
+      "base64",
+    );
+
     // Prepare form data for Spotify API
     const formData = new URLSearchParams();
-    formData.append('grant_type', 'authorization_code');
-    formData.append('code', code);
-    formData.append('redirect_uri', redirectUri);
+    formData.append("grant_type", "authorization_code");
+    formData.append("code", code);
+    formData.append("redirect_uri", redirectUri);
 
-    console.log('🔍 Backend sending to Spotify:');
-    console.log('  - grant_type: authorization_code');
-    console.log('  - code:', code.substring(0, 20) + '...');
-    console.log('  - redirect_uri:', redirectUri);
+    console.log("🔍 Backend sending to Spotify:");
+    console.log("  - grant_type: authorization_code");
+    console.log("  - code:", code.substring(0, 20) + "...");
+    console.log("  - redirect_uri:", redirectUri);
 
     // Make request to Spotify token endpoint
-    const response = await fetch('https://accounts.spotify.com/api/token', {
-      method: 'POST',
+    const response = await fetch("https://accounts.spotify.com/api/token", {
+      method: "POST",
       headers: {
-        'Authorization': `Basic ${credentials}`,
-        'Content-Type': 'application/x-www-form-urlencoded',
+        Authorization: `Basic ${credentials}`,
+        "Content-Type": "application/x-www-form-urlencoded",
       },
       body: formData.toString(),
     });
 
     if (!response.ok) {
       const errorData = await response.text();
-      console.error('Spotify token exchange failed:', errorData);
+      console.error("Spotify token exchange failed:", errorData);
       return c.json({ error: "Failed to exchange authorization code" }, 500);
     }
 
     const tokenData = await response.json();
     return c.json(tokenData);
-
   } catch (error) {
-    console.error('Token exchange error:', error);
+    console.error("Token exchange error:", error);
     return c.json({ error: "Internal server error" }, 500);
   }
 });
@@ -93,7 +94,7 @@ app.post("/api/spotify/exchange", async (c) => {
 app.post("/api/spotify/refresh", async (c) => {
   try {
     const { refreshToken } = await c.req.json();
-    
+
     if (!refreshToken) {
       return c.json({ error: "Refresh token is required" }, 400);
     }
@@ -101,40 +102,41 @@ app.post("/api/spotify/refresh", async (c) => {
     const CLIENT_ID = process.env.SPOTIFY_CLIENT_ID;
     const CLIENT_SECRET = process.env.SPOTIFY_CLIENT_SECRET;
 
-    if (!CLIENT_ID || !CLIENT_SECRET) {
+    if (!CLIENT_ID ?? !CLIENT_SECRET) {
       console.error("Missing Spotify credentials in environment variables");
       return c.json({ error: "Server configuration error" }, 500);
     }
 
     // Create Basic Auth header
-    const credentials = Buffer.from(`${CLIENT_ID}:${CLIENT_SECRET}`).toString('base64');
-    
+    const credentials = Buffer.from(`${CLIENT_ID}:${CLIENT_SECRET}`).toString(
+      "base64",
+    );
+
     // Prepare form data for Spotify API
     const formData = new URLSearchParams();
-    formData.append('grant_type', 'refresh_token');
-    formData.append('refresh_token', refreshToken);
+    formData.append("grant_type", "refresh_token");
+    formData.append("refresh_token", refreshToken);
 
     // Make request to Spotify token endpoint
-    const response = await fetch('https://accounts.spotify.com/api/token', {
-      method: 'POST',
+    const response = await fetch("https://accounts.spotify.com/api/token", {
+      method: "POST",
       headers: {
-        'Authorization': `Basic ${credentials}`,
-        'Content-Type': 'application/x-www-form-urlencoded',
+        Authorization: `Basic ${credentials}`,
+        "Content-Type": "application/x-www-form-urlencoded",
       },
       body: formData.toString(),
     });
 
     if (!response.ok) {
       const errorData = await response.text();
-      console.error('Spotify token refresh failed:', errorData);
+      console.error("Spotify token refresh failed:", errorData);
       return c.json({ error: "Failed to refresh token" }, 500);
     }
 
     const tokenData = await response.json();
     return c.json(tokenData);
-
   } catch (error) {
-    console.error('Token refresh error:', error);
+    console.error("Token refresh error:", error);
     return c.json({ error: "Internal server error" }, 500);
   }
 });
@@ -143,17 +145,17 @@ export default app;
 
 // Start the server if this file is run directly
 if (require.main === module) {
-  const port = process.env.PORT || 3000;
+  const port = process.env.PORT ?? 3000;
   console.log(`🚀 Server starting on port ${port}`);
-  
+
   // For development with tsx
-  const { serve } = require('@hono/node-server');
+  const { serve } = require("@hono/node-server");
   serve({
     fetch: app.fetch,
     port: parseInt(port.toString()),
-    hostname: '0.0.0.0', // Bind to all network interfaces
+    hostname: "0.0.0.0", // Bind to all network interfaces
   });
-  
+
   console.log(`✅ Server running at http://0.0.0.0:${port}`);
   console.log(`🌐 Accessible from network at http://172.25.208.1:${port}`);
 }

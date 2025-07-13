@@ -1,18 +1,17 @@
 import React from "react";
-import { View, Text, Pressable, StyleSheet, ActivityIndicator } from "react-native";
+import {
+  View,
+  Text,
+  Pressable,
+  StyleSheet,
+  ActivityIndicator,
+} from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useSpotifyAuth } from "@/hooks/useSpotifyAuth";
-import * as Clipboard from "expo-clipboard";
 
 export default function LoginScreen() {
-  const { login, loading, error, redirectUri, authRequestUrl } = useSpotifyAuth();
-
-  const handleCopyUri = async () => {
-    if (redirectUri) {
-      await Clipboard.setStringAsync(redirectUri);
-      alert("Redirect URI copied to clipboard!");
-    }
-  };
+  const { login, loading, error, redirectUri, authRequestUrl } =
+    useSpotifyAuth();
 
   return (
     <LinearGradient
@@ -25,14 +24,12 @@ export default function LoginScreen() {
         <View style={styles.logoContainer}>
           <Text style={styles.appName}>StreamShield</Text>
         </View>
-        
-        <Text style={styles.tagline}>
-          Protect your music taste profile
-        </Text>
-        
-        <Pressable 
+
+        <Text style={styles.tagline}>Protect your music taste profile</Text>
+
+        <Pressable
           style={styles.loginButton}
-          onPress={login} 
+          onPress={login}
           disabled={loading || !redirectUri}
         >
           {loading ? (
@@ -46,9 +43,15 @@ export default function LoginScreen() {
         {authRequestUrl && (
           <View style={styles.uriContainer}>
             <Text style={styles.uriLabel}>DEBUG: Auth Request URL</Text>
-            <Text style={styles.uriText} selectable={true}>{authRequestUrl}</Text>
+            <Text style={styles.uriText} selectable={true}>
+              {authRequestUrl}
+            </Text>
             <Text style={styles.instructions}>
-              Look for <Text style={{fontWeight:'bold'}}>&redirect_uri=</Text> in the above URL. Copy the value after it (before the next <Text style={{fontWeight:'bold'}}>&</Text>) and add it to your Spotify Developer Dashboard under "Redirect URIs".
+              Look for{" "}
+              <Text style={{ fontWeight: "bold" }}>&redirect_uri=</Text> in the
+              above URL. Copy the value after it (before the next{" "}
+              <Text style={{ fontWeight: "bold" }}>&</Text>) and add it to your
+              Spotify Developer Dashboard under "Redirect URIs".
             </Text>
           </View>
         )}
@@ -62,7 +65,9 @@ export default function LoginScreen() {
             </Text>
             {/* Optionally, log the error details for debugging */}
             {__DEV__ && (
-              <Text style={styles.errorDetails}>{JSON.stringify(error, null, 2)}</Text>
+              <Text style={styles.errorDetails}>
+                {JSON.stringify(error, null, 2)}
+              </Text>
             )}
           </View>
         )}
@@ -111,7 +116,13 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "600",
   },
-  errorBox: { marginTop: 20, width: "90%", backgroundColor: "rgba(255,0,0,0.08)", borderRadius: 5, padding: 8 },
+  errorBox: {
+    marginTop: 20,
+    width: "90%",
+    backgroundColor: "rgba(255,0,0,0.08)",
+    borderRadius: 5,
+    padding: 8,
+  },
   errorText: {
     color: "#FFCCCC",
     marginTop: 20,
@@ -121,7 +132,12 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     width: "90%",
   },
-  errorDetails: { color: "#FF6666", fontSize: 10, marginTop: 4, fontFamily: "monospace" },
+  errorDetails: {
+    color: "#FF6666",
+    fontSize: 10,
+    marginTop: 4,
+    fontFamily: "monospace",
+  },
   uriContainer: {
     marginTop: 40,
     padding: 15,
@@ -165,5 +181,5 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0, 0, 0, 0.3)",
     padding: 10,
     borderRadius: 5,
-  }
+  },
 });

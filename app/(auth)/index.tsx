@@ -18,28 +18,28 @@ export default function WelcomeScreen() {
           <View style={styles.logoContainer}>
             <Text style={styles.appName}>StreamShield</Text>
           </View>
-          
+
           <View style={styles.infoContainer}>
-            <Text style={styles.tagline}>
-              Protect your music taste profile
-            </Text>
+            <Text style={styles.tagline}>Protect your music taste profile</Text>
             <Text style={styles.description}>
-              Shield your Spotify recommendations from unwanted influences. Keep your music taste authentic.
+              Shield your Spotify recommendations from unwanted influences. Keep
+              your music taste authentic.
             </Text>
           </View>
-          
+
           <View style={styles.buttonContainer}>
-            <Pressable 
+            <Pressable
               style={styles.loginButton}
               onPress={() => router.push("/login")}
             >
               <Text style={styles.loginButtonText}>Get Started</Text>
             </Pressable>
           </View>
-          
+
           <View style={styles.footer}>
             <Text style={styles.footerText}>
-              By continuing, you agree to our Terms of Service and Privacy Policy
+              By continuing, you agree to our Terms of Service and Privacy
+              Policy
             </Text>
           </View>
         </View>

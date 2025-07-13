@@ -1,25 +1,31 @@
 import React, { useCallback } from "react";
-import FontAwesome from "@expo/vector-icons/FontAwesome";
-import { useFonts, Inter_400Regular, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter';
+import {
+  useFonts,
+  Inter_400Regular,
+  Inter_600SemiBold,
+  Inter_700Bold,
+} from "@expo-google-fonts/inter";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect } from "react";
-import { StatusBar, View } from "react-native";
+import { View } from "react-native";
 import { useColorScheme } from "react-native";
-import { useAuthStore } from "@/stores/auth";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { trpc, trpcClient } from "@/lib/trpc";
 import { useRouter, useSegments } from "expo-router";
 import { useThemeStore } from "@/stores/theme";
-import * as BackgroundFetch from "expo-background-fetch";
-import * as TaskManager from "expo-task-manager";
-import { SHIELD_RULES_TASK_NAME } from "@/services/ruleManager";
+import { registerBackgroundTasks } from "@/services/ruleManager";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { themes } from "@/constants/colors";
 import { StatusBar as ExpoStatusBar } from "expo-status-bar";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { useAuthStore } from "@/stores/auth";
+
+export { ErrorBoundary } from "expo-router";
 
 export const unstable_settings = {
-  initialRouteName: "(auth)",
+  // Ensure that reloading on `/modal` keeps a back button present.
+  initialRouteName: "(tabs)",
 };
 
 // Create a client for React Query
@@ -34,10 +40,11 @@ export default function RootLayout() {
     Inter_600SemiBold,
     Inter_700Bold,
   });
-  
+
   const colorScheme = useColorScheme();
   const { theme: themePref, colorTheme } = useThemeStore();
-  const effectiveTheme = themePref === "auto" ? colorScheme ?? "light" : themePref;
+  const effectiveTheme =
+    themePref === "auto" ? (colorScheme ?? "light") : themePref;
   const theme = themes[colorTheme][effectiveTheme];
 
   const onLayoutRootView = useCallback(async () => {
@@ -47,23 +54,11 @@ export default function RootLayout() {
   }, [fontsLoaded]);
 
   useEffect(() => {
-    async function registerBackgroundTask() {
-      const isRegistered = await TaskManager.isTaskRegisteredAsync(SHIELD_RULES_TASK_NAME);
-      if (!isRegistered) {
-        try {
-          await BackgroundFetch.registerTaskAsync(SHIELD_RULES_TASK_NAME, {
-            minimumInterval: 60 * 15, // 15 minutes
-            stopOnTerminate: false,
-            startOnBoot: true,
-          });
-          console.log("Shield rules background task registered");
-        } catch (e) {
-          console.error("Failed to register shield rules background task:", e);
-        }
-      }
+    if (fontsLoaded) {
+      SplashScreen.hideAsync();
+      registerBackgroundTasks();
     }
-    registerBackgroundTask();
-  }, []);
+  }, [fontsLoaded]);
 
   if (!fontsLoaded) {
     // Show nothing until fonts are loaded
@@ -71,18 +66,22 @@ export default function RootLayout() {
   }
 
   return (
-    <>
-      <ExpoStatusBar style={effectiveTheme === "dark" ? "light" : "dark"} />
-      <trpc.Provider client={trpcClient} queryClient={queryClient}>
-        <QueryClientProvider client={queryClient}>
-          <SafeAreaView style={{ flex: 1, backgroundColor: theme.background }}>
-            <View style={{ flex: 1 }} onLayout={onLayoutRootView}>
-              <RootLayoutNav />
-            </View>
-          </SafeAreaView>
-        </QueryClientProvider>
-      </trpc.Provider>
-    </>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <>
+        <ExpoStatusBar style={effectiveTheme === "dark" ? "light" : "dark"} />
+        <trpc.Provider client={trpcClient} queryClient={queryClient}>
+          <QueryClientProvider client={queryClient}>
+            <SafeAreaView
+              style={{ flex: 1, backgroundColor: theme.background }}
+            >
+              <View style={{ flex: 1 }} onLayout={onLayoutRootView}>
+                <RootLayoutNav />
+              </View>
+            </SafeAreaView>
+          </QueryClientProvider>
+        </trpc.Provider>
+      </>
+    </GestureHandlerRootView>
   );
 }
 
@@ -97,7 +96,8 @@ function RootLayoutNav() {
   }
 
   useEffect(() => {
-    const inTabsOrSettingsGroup = segments[0] === "(tabs)" || segments[0] === "settings";
+    const inTabsOrSettingsGroup =
+      segments[0] === "(tabs)" || segments[0] === "settings";
 
     if (isAuthenticated && !inTabsOrSettingsGroup) {
       router.replace("/(tabs)");
@@ -112,6 +112,7 @@ function RootLayoutNav() {
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+      <Stack.Screen name="settings" options={{ headerShown: false }} />
     </Stack>
   );
 }

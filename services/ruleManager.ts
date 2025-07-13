@@ -1,9 +1,22 @@
 import * as TaskManager from "expo-task-manager";
-import * as BackgroundFetch from "expo-background-fetch";
+import * as BackgroundTask from "expo-background-task";
 import { useRulesStore } from "@/stores/rules";
 import { useShieldStore } from "@/stores/shield";
+import * as DeviceManager from "./deviceManager";
+import { useAuthStore } from "@/stores/auth";
 
 export const SHIELD_RULES_TASK_NAME = "check-shield-rules";
+export const DEVICE_MONITOR_TASK_NAME = "device-monitor-task";
+
+TaskManager.defineTask(DEVICE_MONITOR_TASK_NAME, async () => {
+  try {
+    await DeviceManager.checkDeviceRules();
+    return BackgroundTask.BackgroundTaskResult.NewData;
+  } catch (error) {
+    console.error("[TaskManager] Device monitor task failed:", error);
+    return BackgroundTask.BackgroundTaskResult.Failed;
+  }
+});
 
 TaskManager.defineTask(SHIELD_RULES_TASK_NAME, async () => {
   try {
@@ -13,9 +26,14 @@ TaskManager.defineTask(SHIELD_RULES_TASK_NAME, async () => {
 
     const { timeRules } = useRulesStore.getState();
     const { isShieldActive, toggleShield } = useShieldStore.getState();
+    const { user } = useAuthStore.getState();
 
-    // Find any enabled rule that matches the current day and time
-    const matchingRule = timeRules.find((rule) => {
+    if (!user) {
+      return BackgroundTask.BackgroundTaskResult.NoData;
+    }
+
+    // Check time-based rules
+    const matchingTimeRule = timeRules.find((rule) => {
       if (!rule.enabled) return false;
       if (!rule.days.includes(dayName)) return false;
       // Parse start and end time (e.g., "9:00 AM")
@@ -36,19 +54,35 @@ TaskManager.defineTask(SHIELD_RULES_TASK_NAME, async () => {
       }
     });
 
-    if (matchingRule && !isShieldActive) {
-      toggleShield();
-      console.log("Shield activated by time rule");
-      return BackgroundFetch.BackgroundFetchResult.NewData;
-    } else if (!matchingRule && isShieldActive) {
-      toggleShield();
-      console.log("Shield deactivated (no matching time rule)");
-      return BackgroundFetch.BackgroundFetchResult.NewData;
+    if (matchingTimeRule && !isShieldActive) {
+      await toggleShield(user.id);
+      return BackgroundTask.BackgroundTaskResult.NewData;
+    } else if (!matchingTimeRule && isShieldActive) {
+       // This part needs to be smarter, to not disable a shield activated by a device rule.
+       // For now, we only handle time-based deactivation here.
     }
 
-    return BackgroundFetch.BackgroundFetchResult.NoData;
+    return BackgroundTask.BackgroundTaskResult.NoData;
   } catch (e) {
-    console.error("Shield rules background task error:", e);
-    return BackgroundFetch.BackgroundFetchResult.Failed;
+    console.error("[RuleManager] Shield rules background task error:", e);
+    return BackgroundTask.BackgroundTaskResult.Failed;
   }
-}); 
+});
+
+/**
+ * Registers all background tasks for the app.
+ */
+export const registerBackgroundTasks = async () => {
+  await BackgroundTask.registerTaskAsync(DEVICE_MONITOR_TASK_NAME, {
+    minimumInterval: 15 * 60, // 15 minutes
+    stopOnTerminate: false,
+    startOnBoot: true,
+  });
+
+  await BackgroundTask.registerTaskAsync(SHIELD_RULES_TASK_NAME, {
+    minimumInterval: 15 * 60, // 15 minutes
+    stopOnTerminate: false,
+    startOnBoot: true,
+  });
+
+};

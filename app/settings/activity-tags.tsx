@@ -1,11 +1,17 @@
-import React, { useState, useLayoutEffect } from "react";
-import { View, Text, StyleSheet, TextInput, Pressable, FlatList, Alert, ScrollView } from "react-native";
+import React, { useState, useLayoutEffect, useCallback } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  Pressable,
+  TextInput,
+  Alert,
+  FlatList,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useThemeStore } from "@/stores/theme";
 import { useColorScheme } from "react-native";
 import { useNavigation } from "@react-navigation/native";
-import { useRouter } from "expo-router";
-import FontAwesome from 'react-native-vector-icons/FontAwesome';
 import { themes } from "@/constants/colors";
 
 export default function ActivityTagsScreen() {
@@ -19,14 +25,14 @@ export default function ActivityTagsScreen() {
   const [newTagName, setNewTagName] = useState("");
   const [newTagColor, setNewTagColor] = useState("#FF6B6B");
   const [showAddForm, setShowAddForm] = useState(false);
-  
+
   const colorScheme = useColorScheme();
   const { theme: themePref, colorTheme } = useThemeStore();
-  const effectiveTheme = themePref === "auto" ? colorScheme ?? "light" : themePref;
+  const effectiveTheme =
+    themePref === "auto" ? (colorScheme ?? "light") : themePref;
   const theme = themes[colorTheme][effectiveTheme];
 
   const navigation = useNavigation();
-  const router = useRouter();
   useLayoutEffect(() => {
     navigation.setOptions({
       headerStyle: { backgroundColor: theme.background },
@@ -35,92 +41,146 @@ export default function ActivityTagsScreen() {
     });
   }, [navigation, theme]);
 
-  const handleAddTag = () => {
+  const handleAddTag = useCallback(() => {
     if (!newTagName.trim()) return;
-    if (tags.some(tag => tag.name === newTagName.trim())) {
+    if (tags.some((tag) => tag.name === newTagName.trim())) {
       Alert.alert("Duplicate Tag", "This tag already exists.");
       return;
     }
-    setTags([...tags, { id: (tags.length + 1).toString(), name: newTagName.trim(), color: newTagColor, isActive: true }]);
+    setTags([
+      ...tags,
+      {
+        id: (tags.length + 1).toString(),
+        name: newTagName.trim(),
+        color: newTagColor,
+        isActive: true,
+      },
+    ]);
     setNewTagName("");
     setNewTagColor("#FF6B6B");
     setShowAddForm(false);
-  };
+  }, [newTagName, newTagColor, tags]);
 
-  const handleDeleteTag = (index: number) => {
-    Alert.alert(
-      "Delete Tag",
-      "Are you sure you want to delete this tag?",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: () => {
-    setTags(tags.filter((_, i) => i !== index));
-          },
+  const handleDeleteTag = useCallback((id: string) => {
+    Alert.alert("Delete Tag", "Are you sure you want to delete this tag?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: () => {
+          setTags(tags.filter((tag) => tag.id !== id));
         },
-      ]
-    );
-  };
-
-  const handleEditTag = (index: number) => {
-    // Implement edit functionality
-  };
-
-  const handleSaveEdit = () => {
-    // Implement save edit functionality
-  };
+      },
+    ]);
+  }, [tags]);
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={["bottom"]}>
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: theme.background }]}
+      edges={["bottom"]}
+    >
       <View style={styles.content}>
         <Text style={[styles.title, { color: theme.text }]}>Activity Tags</Text>
         <View style={styles.addRow}>
           {showAddForm ? (
             <>
               <TextInput
-                style={[styles.input, { color: theme.text, borderColor: theme.border, backgroundColor: theme.background }]}
+                style={{
+                  flex: 1,
+                  height: 44,
+                  borderColor: theme.tint,
+                  borderWidth: 2,
+                  borderRadius: 8,
+                  paddingHorizontal: 12,
+                  marginRight: 8,
+                  fontSize: 17,
+                  color: theme.text,
+                  backgroundColor: theme.card || "#23272f",
+                  fontWeight: "500",
+                }}
                 placeholder="Tag Name"
-                placeholderTextColor={theme.text}
+                placeholderTextColor={theme.tint}
                 value={newTagName}
                 onChangeText={setNewTagName}
                 onSubmitEditing={handleAddTag}
               />
-          <TextInput
-                style={[styles.input, { color: theme.text, borderColor: theme.border, backgroundColor: theme.background }]}
+              <TextInput
+                style={{
+                  flex: 1,
+                  height: 44,
+                  borderColor: theme.tint,
+                  borderWidth: 2,
+                  borderRadius: 8,
+                  paddingHorizontal: 12,
+                  marginRight: 8,
+                  fontSize: 17,
+                  color: theme.text,
+                  backgroundColor: theme.card || "#23272f",
+                  fontWeight: "500",
+                }}
                 placeholder="Tag Color"
-                placeholderTextColor={theme.text}
+                placeholderTextColor={theme.tint}
                 value={newTagColor}
                 onChangeText={setNewTagColor}
-            onSubmitEditing={handleAddTag}
-          />
-              <Pressable style={[styles.addButton, { backgroundColor: theme.tint }]} onPress={handleAddTag}>
-                <Text style={[styles.addButtonText, { color: theme.background }]}>Add</Text>
+                onSubmitEditing={handleAddTag}
+              />
+              <Pressable
+                style={[styles.addButton, { backgroundColor: theme.tint }]}
+                onPress={handleAddTag}
+              >
+                <Text
+                  style={[styles.addButtonText, { color: theme.background }]}
+                >
+                  Add
+                </Text>
               </Pressable>
             </>
           ) : (
-            <Pressable style={[styles.addButton, { backgroundColor: theme.tint }]} onPress={() => setShowAddForm(true)}>
-              <Text style={[styles.addButtonText, { color: theme.background }]}>Add New Tag</Text>
-          </Pressable>
+            <Pressable
+              style={[styles.addButton, { backgroundColor: theme.tint }]}
+              onPress={() => setShowAddForm(true)}
+            >
+              <Text style={[styles.addButtonText, { color: theme.background }]}>
+                Add New Tag
+              </Text>
+            </Pressable>
           )}
         </View>
         <FlatList
           data={tags}
           keyExtractor={(item) => item.id}
-          renderItem={({ item, index }) => (
+          renderItem={({ item }) => (
             <View style={styles.tagRow}>
-              <View style={[styles.tagColor, { backgroundColor: item.color }]} />
-              <Text style={[styles.tagText, { color: theme.text }]}>{item.name}</Text>
-              <Pressable style={[styles.editButton, { backgroundColor: theme.border }]} onPress={() => handleEditTag(index)}>
-                <Text style={[styles.editButtonText, { color: theme.tint }]}>Edit</Text>
-                  </Pressable>
-              <Pressable style={[styles.deleteButton, { backgroundColor: '#FF3B30' }]} onPress={() => handleDeleteTag(index)}>
-                <Text style={[styles.deleteButtonText, { color: theme.background }]}>Delete</Text>
-                  </Pressable>
+              <View
+                style={[styles.tagColor, { backgroundColor: item.color }]}
+              />
+              <Text style={[styles.tagText, { color: theme.text }]}>
+                {item.name}
+              </Text>
+              <Pressable
+                style={[styles.editButton, { backgroundColor: theme.border }]}
+              >
+                <Text style={[styles.editButtonText, { color: theme.tint }]}>
+                  Edit
+                </Text>
+              </Pressable>
+              <Pressable
+                style={[styles.deleteButton, { backgroundColor: "#FF3B30" }]}
+                onPress={() => handleDeleteTag(item.id)}
+              >
+                <Text
+                  style={[styles.deleteButtonText, { color: theme.background }]}
+                >
+                  Delete
+                </Text>
+              </Pressable>
             </View>
           )}
-          ListEmptyComponent={<Text style={[styles.emptyText, { color: theme.text }]}>No tags yet.</Text>}
+          ListEmptyComponent={
+            <Text style={[styles.emptyText, { color: theme.text }]}>
+              No tags yet.
+            </Text>
+          }
         />
       </View>
     </SafeAreaView>
@@ -208,4 +268,4 @@ const styles = StyleSheet.create({
     marginTop: 32,
     fontSize: 16,
   },
-}); 
+});

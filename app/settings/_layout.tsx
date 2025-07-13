@@ -3,9 +3,9 @@ import { Stack } from "expo-router";
 export default function SettingsStackLayout() {
   return (
     <Stack>
-      <Stack.Screen name="index" options={{ headerShown: false }} />
+      <Stack.Screen name="index" options={{ title: "Settings" }} />
       <Stack.Screen name="activity-tags" options={{ title: "Activity Tags" }} />
-      <Stack.Screen name="blacklist" options={{ title: "Blacklist" }} />
+
       <Stack.Screen name="notifications" options={{ title: "Notifications" }} />
       <Stack.Screen name="profile" options={{ title: "Profile" }} />
       <Stack.Screen name="rules" options={{ title: "Shielding Rules" }} />
@@ -13,4 +13,4 @@ export default function SettingsStackLayout() {
       <Stack.Screen name="support" options={{ title: "Help & Support" }} />
     </Stack>
   );
-} 
+}

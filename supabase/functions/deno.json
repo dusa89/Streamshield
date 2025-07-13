@@ -1,0 +1,12 @@
+{
+  "compilerOptions": {
+    "allowJs": true,
+    "lib": ["deno.window"],
+    "strict": true,
+    "noImplicitAny": false,
+    "skipLibCheck": true
+  },
+  "imports": {
+    "node:buffer": "https://deno.land/std@0.208.0/node/buffer.ts"
+  }
+} 

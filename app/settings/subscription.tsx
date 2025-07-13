@@ -1,20 +1,18 @@
 import React from "react";
 import { View, Text, StyleSheet, ScrollView, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
 import { useAuthStore } from "@/stores/auth";
 import { LinearGradient } from "expo-linear-gradient";
 import { useThemeStore } from "@/stores/theme";
 import { useColorScheme } from "react-native";
 import { themes } from "@/constants/colors";
-import FontAwesome from 'react-native-vector-icons/FontAwesome';
 
 export default function SubscriptionScreen() {
-  const router = useRouter();
   const { user, updateUser } = useAuthStore();
   const colorScheme = useColorScheme();
   const { theme: themePref, colorTheme } = useThemeStore();
-  const effectiveTheme = themePref === "auto" ? colorScheme ?? "light" : themePref;
+  const effectiveTheme =
+    themePref === "auto" ? (colorScheme ?? "light") : themePref;
   const theme = themes[colorTheme][effectiveTheme];
 
   const handleSelectPlan = (plan: "free" | "premium" | "pro") => {
@@ -22,126 +20,259 @@ export default function SubscriptionScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={["bottom"]}>
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: theme.background }]}
+      edges={["bottom"]}
+    >
       <ScrollView style={styles.scrollView}>
         <View style={styles.header}>
-          <Text style={[styles.title, { color: theme.text }]}>Subscription Plans</Text>
-          <Text style={[styles.subtitle, { color: theme.text }]}>Choose the plan that fits your needs</Text>
+          <Text style={[styles.title, { color: theme.text }]}>
+            Subscription Plans
+          </Text>
+          <Text style={[styles.subtitle, { color: theme.text }]}>
+            Choose the plan that fits your needs
+          </Text>
         </View>
         <View style={styles.plansContainer}>
           {/* Free Plan Card */}
-          <View style={[styles.planCard, user?.subscriptionTier === "free" && [styles.selectedPlanCard, { borderColor: theme.tint }], { backgroundColor: theme.background }]}> 
-            <View style={[styles.planHeader, { borderBottomColor: theme.border }]}> 
+          <View
+            style={[
+              styles.planCard,
+              user?.subscriptionTier === "free" && [
+                styles.selectedPlanCard,
+                { borderColor: theme.tint },
+              ],
+              { backgroundColor: theme.background },
+            ]}
+          >
+            <View
+              style={[styles.planHeader, { borderBottomColor: theme.border }]}
+            >
               <Text style={[styles.planName, { color: theme.text }]}>Free</Text>
               <Text style={[styles.planPrice, { color: theme.text }]}>$0</Text>
-              <Text style={[styles.pricePeriod, { color: theme.text }]}>/month</Text>
+              <Text style={[styles.pricePeriod, { color: theme.text }]}>
+                /month
+              </Text>
             </View>
             <View style={styles.planFeatures}>
               <View style={styles.featureItem}>
-                <Text style={[styles.featureText, { color: theme.text }]}>Basic shielding</Text>
+                <Text style={[styles.featureText, { color: theme.text }]}>
+                  Basic shielding
+                </Text>
               </View>
               <View style={styles.featureItem}>
-                <Text style={[styles.featureText, { color: theme.text }]}>2 time-based rules</Text>
+                <Text style={[styles.featureText, { color: theme.text }]}>
+                  2 time-based rules
+                </Text>
               </View>
               <View style={styles.featureItem}>
-                <Text style={[styles.featureText, { color: theme.text }]}>No device-based rules</Text>
+                <Text style={[styles.featureText, { color: theme.text }]}>
+                  No device-based rules
+                </Text>
               </View>
             </View>
             {user?.subscriptionTier === "free" ? (
-              <View style={[styles.currentPlanBadge, { backgroundColor: theme.tint }]}> 
+              <View
+                style={[
+                  styles.currentPlanBadge,
+                  { backgroundColor: theme.tint },
+                ]}
+              >
                 <Text style={styles.currentPlanText}>Current Plan</Text>
               </View>
             ) : (
-              <Pressable 
-                style={[styles.selectButton, { backgroundColor: theme.background }]}
+              <Pressable
+                style={[
+                  styles.selectButton,
+                  { backgroundColor: theme.background },
+                ]}
                 onPress={() => handleSelectPlan("free")}
               >
-                <Text style={[styles.selectButtonText, { color: theme.text }]}>Select</Text>
+                <Text style={[styles.selectButtonText, { color: theme.text }]}>
+                  Select
+                </Text>
               </Pressable>
             )}
           </View>
 
           {/* Premium Plan Card */}
-          <View style={[styles.planCard, user?.subscriptionTier === "premium" && [styles.selectedPlanCard, { borderColor: theme.tint }], { backgroundColor: theme.background }]}> 
-            <View style={[styles.planHeader, { borderBottomColor: theme.border }]}> 
-              <Text style={[styles.planName, { color: theme.text }]}>Premium</Text>
-              <Text style={[styles.planPrice, { color: theme.text }]}>$4.99</Text>
-              <Text style={[styles.pricePeriod, { color: theme.text }]}>/month</Text>
+          <View
+            style={[
+              styles.planCard,
+              user?.subscriptionTier === "premium" && [
+                styles.selectedPlanCard,
+                { borderColor: theme.tint },
+              ],
+              { backgroundColor: theme.background },
+            ]}
+          >
+            <View
+              style={[styles.planHeader, { borderBottomColor: theme.border }]}
+            >
+              <Text style={[styles.planName, { color: theme.text }]}>
+                Premium
+              </Text>
+              <Text style={[styles.planPrice, { color: theme.text }]}>
+                $4.99
+              </Text>
+              <Text style={[styles.pricePeriod, { color: theme.text }]}>
+                /month
+              </Text>
             </View>
             <View style={styles.planFeatures}>
               <View style={styles.featureItem}>
-                <Text style={[styles.featureText, { color: theme.text }]}>All Free features</Text>
+                <Text style={[styles.featureText, { color: theme.text }]}>
+                  All Free features
+                </Text>
               </View>
               <View style={styles.featureItem}>
-                <Text style={[styles.featureText, { color: theme.text }]}>Unlimited time-based rules</Text>
+                <Text style={[styles.featureText, { color: theme.text }]}>
+                  Unlimited time-based rules
+                </Text>
               </View>
               <View style={styles.featureItem}>
-                <Text style={[styles.featureText, { color: theme.text }]}>Device-based rules</Text>
+                <Text style={[styles.featureText, { color: theme.text }]}>
+                  Device-based rules
+                </Text>
               </View>
               <View style={styles.featureItem}>
-                <Text style={[styles.featureText, { color: theme.text }]}>Priority support</Text>
+                <Text style={[styles.featureText, { color: theme.text }]}>
+                  Priority support
+                </Text>
               </View>
             </View>
             {user?.subscriptionTier === "premium" ? (
-              <View style={[styles.currentPlanBadge, { backgroundColor: theme.tint }]}> 
+              <View
+                style={[
+                  styles.currentPlanBadge,
+                  { backgroundColor: theme.tint },
+                ]}
+              >
                 <Text style={styles.currentPlanText}>Current Plan</Text>
               </View>
             ) : (
-              <Pressable 
-                style={[styles.selectButton, { backgroundColor: theme.background }]}
+              <Pressable
+                style={[
+                  styles.selectButton,
+                  { backgroundColor: theme.background },
+                ]}
                 onPress={() => handleSelectPlan("premium")}
               >
-                <Text style={[styles.selectButtonText, { color: theme.text }]}>Select</Text>
+                <Text style={[styles.selectButtonText, { color: theme.text }]}>
+                  Select
+                </Text>
               </Pressable>
             )}
           </View>
 
           {/* Pro Plan Card */}
-          <View style={[styles.planCard, styles.proPlanCard, user?.subscriptionTier === "pro" && [styles.selectedProPlanCard, { borderColor: theme.tint }], { backgroundColor: theme.background }]}> 
+          <View
+            style={[
+              styles.planCard,
+              styles.proPlanCard,
+              user?.subscriptionTier === "pro" && [
+                styles.selectedProPlanCard,
+                { borderColor: theme.tint },
+              ],
+              { backgroundColor: theme.background },
+            ]}
+          >
             <LinearGradient
               colors={[theme.tint, "#147B36"]}
               style={styles.proGradient}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
             >
-              <View style={[styles.planHeader, { borderBottomColor: theme.border }]}> 
-                <Text style={[styles.planName, styles.proPlanName, { color: "#FFFFFF" }]}>Pro</Text>
-                <Text style={[styles.planPrice, styles.proPlanPrice, { color: "#FFFFFF" }]}>$9.99</Text>
-                <Text style={[styles.pricePeriod, styles.proPricePeriod, { color: "rgba(255,255,255,0.8)" }]}>/month</Text>
+              <View
+                style={[styles.planHeader, { borderBottomColor: theme.border }]}
+              >
+                <Text
+                  style={[
+                    styles.planName,
+                    styles.proPlanName,
+                    { color: "#FFFFFF" },
+                  ]}
+                >
+                  Pro
+                </Text>
+                <Text
+                  style={[
+                    styles.planPrice,
+                    styles.proPlanPrice,
+                    { color: "#FFFFFF" },
+                  ]}
+                >
+                  $9.99
+                </Text>
+                <Text
+                  style={[
+                    styles.pricePeriod,
+                    styles.proPricePeriod,
+                    { color: "rgba(255,255,255,0.8)" },
+                  ]}
+                >
+                  /month
+                </Text>
               </View>
               <View style={styles.planFeatures}>
                 <View style={styles.featureItem}>
-                  <Text style={[styles.featureText, styles.proFeatureText]}>All Premium features</Text>
+                  <Text style={[styles.featureText, styles.proFeatureText]}>
+                    All Premium features
+                  </Text>
                 </View>
                 <View style={styles.featureItem}>
-                  <Text style={[styles.featureText, styles.proFeatureText]}>AI-powered session management</Text>
+                  <Text style={[styles.featureText, styles.proFeatureText]}>
+                    AI-powered session management
+                  </Text>
                 </View>
                 <View style={styles.featureItem}>
-                  <Text style={[styles.featureText, styles.proFeatureText]}>Smart alerts for unprotected listening</Text>
+                  <Text style={[styles.featureText, styles.proFeatureText]}>
+                    Smart alerts for unprotected listening
+                  </Text>
                 </View>
                 <View style={styles.featureItem}>
-                  <Text style={[styles.featureText, styles.proFeatureText]}>AI-assisted taste profile curation</Text>
+                  <Text style={[styles.featureText, styles.proFeatureText]}>
+                    AI-assisted taste profile curation
+                  </Text>
                 </View>
                 <View style={styles.featureItem}>
-                  <Text style={[styles.featureText, styles.proFeatureText]}>Intelligent rule creation wizard</Text>
+                  <Text style={[styles.featureText, styles.proFeatureText]}>
+                    Intelligent rule creation wizard
+                  </Text>
                 </View>
                 <View style={styles.featureItem}>
-                  <Text style={[styles.featureText, styles.proFeatureText]}>Advanced shielding strength options</Text>
+                  <Text style={[styles.featureText, styles.proFeatureText]}>
+                    Advanced shielding strength options
+                  </Text>
                 </View>
                 <View style={styles.featureItem}>
-                  <Text style={[styles.featureText, styles.proFeatureText]}>Whitelisting within shielded sessions</Text>
+                  <Text style={[styles.featureText, styles.proFeatureText]}>
+                    Whitelisting within shielded sessions
+                  </Text>
                 </View>
                 <View style={styles.featureItem}>
-                  <Text style={[styles.featureText, styles.proFeatureText]}>Profile integrity score & anomaly detection</Text>
+                  <Text style={[styles.featureText, styles.proFeatureText]}>
+                    Profile integrity score & anomaly detection
+                  </Text>
                 </View>
               </View>
               {user?.subscriptionTier === "pro" ? (
-                <View style={[styles.currentPlanBadge, styles.proCurrentPlanBadge, { backgroundColor: "rgba(255,255,255,0.2)" }]}> 
+                <View
+                  style={[
+                    styles.currentPlanBadge,
+                    styles.proCurrentPlanBadge,
+                    { backgroundColor: "rgba(255,255,255,0.2)" },
+                  ]}
+                >
                   <Text style={styles.currentPlanText}>Current Plan</Text>
                 </View>
               ) : (
-                <Pressable 
-                  style={[styles.selectButton, styles.proSelectButton, { backgroundColor: "rgba(255,255,255,0.2)" }]}
+                <Pressable
+                  style={[
+                    styles.selectButton,
+                    styles.proSelectButton,
+                    { backgroundColor: "rgba(255,255,255,0.2)" },
+                  ]}
                   onPress={() => handleSelectPlan("pro")}
                 >
                   <Text style={styles.selectButtonText}>Select</Text>
@@ -150,8 +281,13 @@ export default function SubscriptionScreen() {
             </LinearGradient>
           </View>
         </View>
-        <View style={[styles.infoContainer, { backgroundColor: theme.background }]}> 
-          <Text style={[styles.infoText, { color: theme.text }]}>In a real app, selecting a paid plan would take you to a payment screen. For this demo, plans can be switched instantly.</Text>
+        <View
+          style={[styles.infoContainer, { backgroundColor: theme.background }]}
+        >
+          <Text style={[styles.infoText, { color: theme.text }]}>
+            In a real app, selecting a paid plan would take you to a payment
+            screen. For this demo, plans can be switched instantly.
+          </Text>
         </View>
       </ScrollView>
     </SafeAreaView>

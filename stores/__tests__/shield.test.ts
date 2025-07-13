@@ -1,6 +1,6 @@
-import { useShieldStore } from '../shield';
+import { useShieldStore } from "../shield";
 
-describe('useShieldStore', () => {
+describe("useShieldStore", () => {
   beforeEach(() => {
     useShieldStore.setState({
       isShieldActive: false,
@@ -9,7 +9,7 @@ describe('useShieldStore', () => {
     });
   });
 
-  it('should toggle shield active state', () => {
+  it("should toggle shield active state", () => {
     expect(useShieldStore.getState().isShieldActive).toBe(false);
     useShieldStore.getState().toggleShield();
     expect(useShieldStore.getState().isShieldActive).toBe(true);
@@ -17,8 +17,8 @@ describe('useShieldStore', () => {
     expect(useShieldStore.getState().isShieldActive).toBe(false);
   });
 
-  it('should set shield duration', () => {
+  it("should set shield duration", () => {
     useShieldStore.getState().setShieldDuration(120);
     expect(useShieldStore.getState().shieldDuration).toBe(120);
   });
-}); 
+});

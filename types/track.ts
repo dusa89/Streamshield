@@ -6,6 +6,30 @@ export interface Track {
   album: string;
   albumId?: string;
   albumArt: string;
-  duration: number; // in ms
-  timestamp?: number; // for recently played tracks
+  duration?: number;
+  timestamp?: number;
+}
+
+export interface UserDevice {
+  id: string | null;
+  is_active: boolean;
+  is_private_session: boolean;
+  is_restricted: boolean;
+  name: string;
+  type: string;
+  volume_percent: number | null;
+}
+
+export interface HistoryItem {
+  id: string;
+  timestamp: number;
+  title: string;
+  description: string;
+  shielded: boolean;
+  tags?: string[];
+  tracks?: number;
+  albumArt?: string;
+  artistId?: string;
+  albumId?: string;
+  albumName?: string;
 }

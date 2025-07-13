@@ -12,7 +12,7 @@ const getBaseUrl = () => {
     // so that your phone can connect to the backend server during development.
     return "http://172.25.208.1:3000";
   }
-  
+
   // For production, use environment variable if set
   if (process.env.EXPO_PUBLIC_API_BASE_URL) {
     return process.env.EXPO_PUBLIC_API_BASE_URL;

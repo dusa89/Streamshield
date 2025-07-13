@@ -1,5 +1,12 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, Pressable, TextInput, Alert } from "react-native";
+import {
+  View,
+  Text,
+  StyleSheet,
+  Pressable,
+  TextInput,
+  Alert,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Image } from "expo-image";
 import { useAuthStore } from "@/stores/auth";
@@ -7,7 +14,7 @@ import * as ImagePicker from "expo-image-picker";
 
 export default function ProfileScreen() {
   const { user, updateUser } = useAuthStore();
-  const [displayName, setDisplayName] = useState(user?.displayName || "");
+  const [displayName, setDisplayName] = useState(user?.displayName ?? "");
   const [isEditing, setIsEditing] = useState(false);
 
   const handleUpdateProfile = () => {
@@ -50,7 +57,7 @@ export default function ProfileScreen() {
             source={{ uri: user?.profileImageUrl }}
             style={styles.profileImage}
           />
-          <Pressable 
+          <Pressable
             style={styles.changeImageButton}
             onPress={handleSelectProfileImage}
           >
@@ -62,10 +69,23 @@ export default function ProfileScreen() {
             <Text style={styles.infoLabel}>Display Name</Text>
             {isEditing ? (
               <TextInput
-                style={styles.infoInput}
+                style={{
+                  fontSize: 17,
+                  color: "#191414",
+                  backgroundColor: "#F5F5F5",
+                  borderColor: "#1DB954",
+                  borderWidth: 2,
+                  borderRadius: 8,
+                  fontWeight: "500",
+                  height: 44,
+                  paddingLeft: 12,
+                  marginBottom: 4,
+                }}
                 value={displayName}
                 onChangeText={setDisplayName}
                 autoFocus
+                placeholder="Enter display name"
+                placeholderTextColor="#1DB954"
               />
             ) : (
               <Text style={styles.infoValue}>{user?.displayName}</Text>
@@ -81,24 +101,23 @@ export default function ProfileScreen() {
           </View>
           <View style={styles.infoItem}>
             <Text style={styles.infoLabel}>Subscription</Text>
-            <Text style={[
-              styles.infoValue, 
-              styles.subscriptionValue,
-              user?.subscriptionTier === "premium" && styles.premiumValue,
-              user?.subscriptionTier === "pro" && styles.proValue,
-            ]}>
-              {user?.subscriptionTier === "free" 
-                ? "Free Plan" 
-                : user?.subscriptionTier === "premium" 
-                  ? "Premium Plan" 
+            <Text
+              style={[
+                styles.infoValue,
+                styles.subscriptionValue,
+                user?.subscriptionTier === "premium" && styles.premiumValue,
+                user?.subscriptionTier === "pro" && styles.proValue,
+              ]}
+            >
+              {user?.subscriptionTier === "free"
+                ? "Free Plan"
+                : user?.subscriptionTier === "premium"
+                  ? "Premium Plan"
                   : "Pro Plan"}
             </Text>
           </View>
         </View>
-        <Pressable 
-          style={styles.updateButton}
-          onPress={handleUpdateProfile}
-        >
+        <Pressable style={styles.updateButton} onPress={handleUpdateProfile}>
           <Text style={styles.updateButtonText}>
             {isEditing ? "Save Changes" : "Edit Profile"}
           </Text>

@@ -1,41 +1,27 @@
 import { create } from "zustand";
-import { createJSONStorage, persist } from "zustand/middleware";
+import { persist, createJSONStorage } from "zustand/middleware";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { themes } from "@/constants/colors";
 
-export type ThemePreference = "light" | "dark" | "auto";
-export type ColorTheme =
-  | "charcoalGold"
-  | "classicSpotify"
-  | "cyberpunk"
-  | "earthTones"
-  | "feminineRose"
-  | "masculineSteel"
-  | "monochrome"
-  | "nordicNight"
-  | "pastelBlossom"
-  | "pastelCitrus"
-  | "pastelOcean"
-  | "solarizedDark";
+export type ThemeName = "auto" | "light" | "dark";
+export type ColorTheme = keyof typeof themes;
 
 interface ThemeState {
-  theme: ThemePreference;
-  setTheme: (theme: ThemePreference) => void;
+  theme: ThemeName;
+  setTheme: (theme: ThemeName) => void;
   colorTheme: ColorTheme;
   setColorTheme: (colorTheme: ColorTheme) => void;
   isHydrating: boolean;
+  _setHydrating: (isHydrating: boolean) => void;
 }
 
 export const useThemeStore = create<ThemeState>()(
   persist(
-    (set, get) => ({
+    (set) => ({
       theme: "auto",
-      setTheme: (theme) => {
-        console.log("Setting theme to:", theme);
-        set({ theme });
-      },
-      colorTheme: "classicSpotify",
+      colorTheme: "pastelCitrus",
+      setTheme: (theme) => set({ theme }),
       setColorTheme: (colorTheme) => {
-        console.log("Setting color theme to:", colorTheme);
         set({ colorTheme });
       },
       isHydrating: true,
@@ -44,9 +30,8 @@ export const useThemeStore = create<ThemeState>()(
       name: "theme-storage",
       storage: createJSONStorage(() => AsyncStorage),
       onRehydrateStorage: () => (state) => {
-        console.log("Theme store rehydrated:", state);
         if (state) state.isHydrating = false;
       },
-    }
-  )
-); 
+    },
+  ),
+);

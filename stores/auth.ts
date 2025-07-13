@@ -37,27 +37,28 @@ export const useAuthStore = create<AuthState>()(
       tokens: null,
       login: (user, tokens) => {
         // Calculate expiration timestamp
-        const expiresAt = Date.now() + (tokens.expiresIn * 1000);
+        const expiresAt = Date.now() + tokens.expiresIn * 1000;
         const tokensWithExpiry = { ...tokens, expiresAt };
-        
-        set({ 
-          isAuthenticated: true, 
-          user, 
-          tokens: tokensWithExpiry 
+
+        set({
+          isAuthenticated: true,
+          user,
+          tokens: tokensWithExpiry,
         });
       },
-      logout: () => set({ 
-        isAuthenticated: false, 
-        user: null, 
-        tokens: null 
-      }),
-      updateUser: (updates) => 
+      logout: () =>
+        set({
+          isAuthenticated: false,
+          user: null,
+          tokens: null,
+        }),
+      updateUser: (updates) =>
         set((state) => ({
-          user: state.user ? { ...state.user, ...updates } : null
+          user: state.user ? { ...state.user, ...updates } : null,
         })),
       updateTokens: (updates) =>
         set((state) => ({
-          tokens: state.tokens ? { ...state.tokens, ...updates } : null
+          tokens: state.tokens ? { ...state.tokens, ...updates } : null,
         })),
       isHydrating: true,
     }),
@@ -67,6 +68,6 @@ export const useAuthStore = create<AuthState>()(
       onRehydrateStorage: () => (state) => {
         if (state) state.isHydrating = false;
       },
-    }
-  )
+    },
+  ),
 );

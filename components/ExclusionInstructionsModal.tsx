@@ -1,21 +1,37 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, StyleSheet, Modal, Pressable, Image, ScrollView } from "react-native";
+import {
+  View,
+  Text,
+  StyleSheet,
+  Modal,
+  Pressable,
+  ScrollView,
+  TouchableOpacity,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useProtectionMechanism } from "@/services/protectionMechanism";
-import { useThemeStore } from '@/stores/theme';
-import { useColorScheme } from 'react-native';
-import { themes } from '@/constants/colors';
+import { useThemeStore } from "@/stores/theme";
+import { useColorScheme } from "react-native";
+import { themes } from "@/constants/colors";
 
 interface ExclusionInstructionsModalProps {
   visible: boolean;
   onClose: () => void;
 }
 
-export function ExclusionInstructionsModal({ visible, onClose }: ExclusionInstructionsModalProps) {
+export function ExclusionInstructionsModal({
+  visible,
+  onClose,
+}: ExclusionInstructionsModalProps) {
   const protectionMechanism = useProtectionMechanism();
   const [shouldShow, setShouldShow] = useState(false);
+  const [activeTab, setActiveTab] = useState<"iOS" | "Android" | "Desktop">(
+    "iOS",
+  );
   const colorScheme = useColorScheme();
   const { theme: themePref, colorTheme } = useThemeStore();
-  const effectiveTheme = themePref === "auto" ? colorScheme ?? "light" : themePref;
+  const effectiveTheme =
+    themePref === "auto" ? (colorScheme ?? "light") : themePref;
   const theme = themes[colorTheme][effectiveTheme];
 
   useEffect(() => {
@@ -32,7 +48,7 @@ export function ExclusionInstructionsModal({ visible, onClose }: ExclusionInstru
     setShouldShow(false);
     onClose();
   };
-  
+
   if (!shouldShow) return null;
 
   return (
@@ -42,87 +58,145 @@ export function ExclusionInstructionsModal({ visible, onClose }: ExclusionInstru
       visible={visible}
       onRequestClose={onClose}
     >
-      <View style={[styles.centeredView, { backgroundColor: theme.text + '80' }]}>
-        <View style={[styles.modalView, { backgroundColor: theme.background, shadowColor: theme.border }]}>
+      <SafeAreaView
+        style={[styles.centeredView, { backgroundColor: theme.text + "80" }]}
+      >
+        <View
+          style={[
+            styles.modalView,
+            { backgroundColor: theme.background, shadowColor: theme.border },
+          ]}
+        >
           <ScrollView style={styles.scrollView}>
             <View style={styles.header}>
-              <Text style={[styles.title, { color: theme.text }]}>One-Time Setup Required</Text>
-            </View>
-            
-            <Text style={[styles.description, { color: theme.text }]}>
-              For StreamShield to effectively protect your music taste profile, you need to mark the 
-              "StreamShield" playlist as excluded from your taste profile in Spotify.
-            </Text>
-            
-            <View style={[styles.infoBox, { backgroundColor: theme.border }] }>
-              <Text style={[styles.infoTitle, { color: theme.text }]}>How StreamShield Works</Text>
-              <Text style={[styles.infoText, { color: theme.text }]}>
-                When you activate the shield, StreamShield adds tracks you listen to during shielded sessions 
-                to a special playlist that you've marked as "excluded from taste profile" in Spotify. 
-                This helps dilute the impact of these plays on your recommendations.
+              <Text style={[styles.title, { color: theme.text }]}>
+                One-Time Setup Required
               </Text>
             </View>
-            
+
+            <Text style={[styles.description, { color: theme.text }]}>
+              For StreamShield to effectively protect your music taste profile,
+              you need to mark its dedicated playlist as "excluded" in your
+              Spotify settings.
+            </Text>
+
+            <View style={[styles.infoBox, { backgroundColor: theme.border }]}>
+              <Text style={[styles.infoTitle, { color: theme.text }]}>
+                How StreamShield Works
+              </Text>
+              <Text style={[styles.infoText, { color: theme.text }]}>
+                When you use StreamShield, it moves the songs you listen to into
+                a special playlist. By telling Spotify to "exclude" this
+                playlist from your taste profile, you prevent those songs from
+                affecting your future music recommendations, like Discover
+                Weekly.
+              </Text>
+            </View>
+
             <View style={styles.stepsContainer}>
-              <Text style={[styles.stepsTitle, { color: theme.text }]}>Follow these steps:</Text>
-              
-              <View style={styles.step}>
-                <Text style={[styles.stepNumber, { backgroundColor: theme.tint, color: theme.background }]}>1</Text>
-                <Text style={[styles.stepText, { color: theme.text }]}>Open the Spotify app</Text>
+              <Text style={[styles.stepsTitle, { color: theme.text }]}>
+                How to set it up:
+              </Text>
+
+              <View style={styles.tabContainer}>
+                {(["iOS", "Android", "Desktop"] as const).map((tab) => (
+                  <TouchableOpacity
+                    key={tab}
+                    style={[
+                      styles.tab,
+                      activeTab === tab && {
+                        backgroundColor: theme.tint,
+                      },
+                    ]}
+                    onPress={() => setActiveTab(tab)}
+                  >
+                    <Text
+                      style={[
+                        styles.tabText,
+                        { color: theme.text },
+                        activeTab === tab && {
+                          color: theme.background,
+                          fontWeight: "bold",
+                        },
+                      ]}
+                    >
+                      {tab}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
               </View>
-              
-              <View style={styles.step}>
-                <Text style={[styles.stepNumber, { backgroundColor: theme.tint, color: theme.background }]}>2</Text>
-                <Text style={[styles.stepText, { color: theme.text }]}>Go to Your Library → Playlists</Text>
-              </View>
-              
-              <View style={styles.step}>
-                <Text style={[styles.stepNumber, { backgroundColor: theme.tint, color: theme.background }]}>3</Text>
-                <Text style={[styles.stepText, { color: theme.text }]}>Find "StreamShield (Excluded from Recommendations)"</Text>
-              </View>
-              
-              <View style={styles.step}>
-                <Text style={[styles.stepNumber, { backgroundColor: theme.tint, color: theme.background }]}>4</Text>
-                <Text style={[styles.stepText, { color: theme.text }]}>Tap the "..." menu button</Text>
-              </View>
-              
-              <View style={styles.step}>
-                <Text style={[styles.stepNumber, { backgroundColor: theme.tint, color: theme.background }]}>5</Text>
-                <Text style={[styles.stepText, { color: theme.text }]}>Select "Exclude from your taste profile"</Text>
+
+              <View
+                style={[
+                  styles.instructionsContainer,
+                  { backgroundColor: theme.card },
+                ]}
+              >
+                {activeTab === "iOS" && (
+                  <View>
+                    <Text style={[styles.stepText, { color: theme.text }]}>1. Open the Spotify app on your iPhone or iPad.</Text>
+                    <Text style={[styles.stepText, { color: theme.text }]}>2. Tap <Text style={{ fontWeight: "bold" }}>Your Library</Text> at the bottom of the screen.</Text>
+                    <Text style={[styles.stepText, { color: theme.text }]}>3. Tap <Text style={{ fontWeight: "bold" }}>Playlists</Text> at the top, then scroll to find the playlist called <Text style={{ fontWeight: "bold" }}>'StreamShield Exclusion List'</Text>.</Text>
+                    <Text style={[styles.stepText, { color: theme.text }]}>4. Tap on the playlist to open it.</Text>
+                    <Text style={[styles.stepText, { color: theme.text }]}>5. Look for the <Text style={{ fontWeight: "bold" }}>three dots</Text> (•••) button just below the playlist name and tap it. This opens a menu with more options.</Text>
+                    <Text style={[styles.stepText, { color: theme.text }]}>6. In the menu, scroll down and tap <Text style={{ fontWeight: "bold" }}>'Exclude from your taste profile'</Text>. This tells Spotify to ignore songs in this playlist when making recommendations for you (like Discover Weekly).</Text>
+                    <Text style={[styles.stepText, { color: theme.text }]}>7. After you do this, you might see a small icon or message showing the playlist is excluded. If you ever create a new StreamShield playlist, repeat these steps for the new one.</Text>
+                  </View>
+                )}
+                {activeTab === "Android" && (
+                  <View>
+                    <Text style={[styles.stepText, { color: theme.text }]}>1. Open the Spotify app on your Android phone or tablet.</Text>
+                    <Text style={[styles.stepText, { color: theme.text }]}>2. Tap <Text style={{ fontWeight: "bold" }}>Your Library</Text> at the bottom.</Text>
+                    <Text style={[styles.stepText, { color: theme.text }]}>3. Tap <Text style={{ fontWeight: "bold" }}>Playlists</Text> at the top, then scroll to find <Text style={{ fontWeight: "bold" }}>'StreamShield Exclusion List'</Text>.</Text>
+                    <Text style={[styles.stepText, { color: theme.text }]}>4. Tap on the playlist to open it.</Text>
+                    <Text style={[styles.stepText, { color: theme.text }]}>5. Tap the <Text style={{ fontWeight: "bold" }}>three dots</Text> (⋮) in the top right corner of the screen. This opens more options.</Text>
+                    <Text style={[styles.stepText, { color: theme.text }]}>6. Tap <Text style={{ fontWeight: "bold" }}>'Exclude from your taste profile'</Text> in the menu. This tells Spotify to ignore songs in this playlist when making recommendations for you.</Text>
+                    <Text style={[styles.stepText, { color: theme.text }]}>7. You may see a small icon or message showing the playlist is excluded. If you get a new StreamShield playlist, repeat these steps for the new one.</Text>
+                  </View>
+                )}
+                {activeTab === "Desktop" && (
+                  <View>
+                    <Text style={[styles.stepText, { color: theme.text }]}>1. Open the Spotify app on your computer (Windows or Mac).</Text>
+                    <Text style={[styles.stepText, { color: theme.text }]}>2. In the left sidebar, under <Text style={{ fontWeight: "bold" }}>Your Library</Text>, find and click on <Text style={{ fontWeight: "bold" }}>'StreamShield Exclusion List'</Text>.</Text>
+                    <Text style={[styles.stepText, { color: theme.text }]}>3. Right-click the playlist name in the sidebar, or click the <Text style={{ fontWeight: "bold" }}>three dots</Text> (•••) near the top of the playlist page (next to the Play button).</Text>
+                    <Text style={[styles.stepText, { color: theme.text }]}>4. In the menu that appears, click <Text style={{ fontWeight: "bold" }}>'Exclude from your taste profile'</Text>. This tells Spotify to ignore songs in this playlist when making recommendations for you.</Text>
+                    <Text style={[styles.stepText, { color: theme.text }]}>5. You may see a small icon or message showing the playlist is excluded. If you get a new StreamShield playlist, repeat these steps for the new one.</Text>
+                  </View>
+                )}
               </View>
             </View>
-            
-            <View style={styles.imageContainer}>
-              <Image 
-                source={{ uri: "https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?q=80&w=300&auto=format" }}
-                style={styles.image}
-                resizeMode="contain"
-              />
-              <Text style={[styles.imageCaption, { color: theme.tabIconDefault }]}>Example of Spotify menu option</Text>
-            </View>
-            
+
             <Text style={[styles.note, { color: theme.tabIconDefault }]}>
-              This is a one-time setup. You only need to do this once for StreamShield to work properly.
+              This is a one-time setup for each new "StreamShield" playlist. If
+              a playlist gets full, the app will create a new one, and you'll
+              need to repeat this process.
             </Text>
           </ScrollView>
-          
+
           <View style={styles.buttonContainer}>
             <Pressable
               style={[styles.button, { backgroundColor: theme.tint }]}
               onPress={handleUnderstand}
             >
-              <Text style={[styles.buttonText, { color: theme.background }]}>I've Done This</Text>
+              <Text style={[styles.buttonText, { color: theme.background }]}>
+                I've Done This
+              </Text>
             </Pressable>
-            
+
             <Pressable
-              style={[styles.laterButton, { backgroundColor: theme.background, borderColor: theme.tint }]}
+              style={[
+                styles.laterButton,
+                { backgroundColor: theme.background, borderColor: theme.tint },
+              ]}
               onPress={onClose}
             >
-              <Text style={[styles.laterButtonText, { color: theme.tint }]}>Remind Me Later</Text>
+              <Text style={[styles.laterButtonText, { color: theme.tint }]}>
+                Remind Me Later
+              </Text>
             </Pressable>
           </View>
         </View>
-      </View>
+      </SafeAreaView>
     </Modal>
   );
 }
@@ -155,23 +229,22 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   title: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: "bold",
-    marginLeft: 12,
   },
   description: {
     fontSize: 16,
-    marginBottom: 20,
-    lineHeight: 22,
+    lineHeight: 24,
+    marginBottom: 16,
   },
   infoBox: {
-    borderRadius: 12,
     padding: 16,
+    borderRadius: 12,
     marginBottom: 20,
   },
   infoTitle: {
     fontSize: 16,
-    fontWeight: "600",
+    fontWeight: "bold",
     marginBottom: 8,
   },
   infoText: {
@@ -182,74 +255,67 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   stepsTitle: {
-    fontSize: 16,
-    fontWeight: "600",
+    fontSize: 18,
+    fontWeight: "bold",
     marginBottom: 12,
   },
-  step: {
+  tabContainer: {
     flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 10,
+    marginBottom: 12,
+    borderRadius: 8,
+    overflow: "hidden",
   },
-  stepNumber: {
-    width: 24,
-    height: 24,
+  tab: {
+    flex: 1,
+    paddingVertical: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  tabText: {
+    fontSize: 14,
+  },
+  instructionsContainer: {
+    padding: 16,
     borderRadius: 12,
-    textAlign: "center",
-    lineHeight: 24,
-    fontWeight: "bold",
-    marginRight: 12,
   },
   stepText: {
     fontSize: 15,
-  },
-  imageContainer: {
-    alignItems: "center",
-    marginBottom: 20,
-  },
-  image: {
-    width: "100%",
-    height: 150,
-    borderRadius: 8,
+    lineHeight: 22,
     marginBottom: 8,
   },
-  imageCaption: {
-    fontSize: 14,
-    fontStyle: "italic",
-  },
   note: {
-    fontSize: 14,
-    fontStyle: "italic",
-    marginBottom: 20,
+    fontSize: 13,
     textAlign: "center",
+    marginTop: 16,
+    lineHeight: 18,
   },
   buttonContainer: {
-    marginTop: 10,
+    marginTop: 16,
+    flexDirection: "column",
+    gap: 8,
   },
   button: {
-    flexDirection: "row",
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    elevation: 2,
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 12,
-    borderRadius: 30,
-    marginBottom: 12,
   },
   buttonText: {
     fontSize: 16,
-    fontWeight: "600",
-    marginLeft: 8,
+    fontWeight: "bold",
   },
   laterButton: {
-    flexDirection: "row",
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderWidth: 2,
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 12,
-    borderRadius: 30,
-    borderWidth: 1,
   },
   laterButtonText: {
     fontSize: 16,
-    fontWeight: "600",
-    marginLeft: 8,
+    fontWeight: "bold",
   },
 });
