@@ -29,6 +29,28 @@ jobs:
           branch: ${{ github.ref_name }}
           title: 'Automated PR from ${{ github.ref_name }}'
           body: |
+            ## 🤖 Automated Pull Request
+            
             This PR was automatically created from branch `${{ github.ref_name }}`.
-            Please review and merge if appropriate.
+            
+            ### What this means:
+            - **Code changes** have been made on a feature branch
+            - **BugBot will review** this PR automatically (if enabled in Cursor dashboard)
+            - **Manual review required** before merging to main
+            
+            ### Next steps:
+            1. **Check BugBot's review** - Look for comments from BugBot below
+            2. **Review the changes** - Go through the modified files
+            3. **Give approval** - Tell the AI assistant if it's okay to merge
+            
+            ### Files changed:
+            - See the "Files changed" tab above for detailed changes
+            
+            ### BugBot Integration:
+            - BugBot will automatically scan for security issues, code quality problems, and best practices
+            - Any issues found will be commented on this PR
+            - Fixes can be made before merging to main
+            
+            ---
+            *This PR was created by the automated workflow to ensure code quality and safety.*
           draft: false 
