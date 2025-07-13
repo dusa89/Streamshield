@@ -4,7 +4,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { cloudSync } from "@/services/cloudSync";
 import { UserDevice } from "@/types/track";
 
-interface TimeRule {
+export interface TimeRule {
   id: string;
   name: string;
   days: string[];
@@ -13,7 +13,7 @@ interface TimeRule {
   enabled: boolean;
 }
 
-interface DeviceRule {
+export interface DeviceRule {
   id: string;
   deviceId: string;
   deviceName: string;

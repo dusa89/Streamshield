@@ -254,7 +254,7 @@ class CloudSyncService {
       for (const track of allTracks) {
         if (!track.id) continue;
         const existing = trackMap.get(track.id);
-        if (!existing ?? (track.timestamp ?? 0) > (existing.timestamp ?? 0)) {
+        if (!existing || (track.timestamp ?? 0) > (existing.timestamp ?? 0)) {
           trackMap.set(track.id, track);
         }
       }

@@ -45,7 +45,7 @@ app.post("/api/spotify/exchange", async (c) => {
     const CLIENT_ID = process.env.SPOTIFY_CLIENT_ID;
     const CLIENT_SECRET = process.env.SPOTIFY_CLIENT_SECRET;
 
-    if (!CLIENT_ID ?? !CLIENT_SECRET) {
+    if (!CLIENT_ID || !CLIENT_SECRET) {
       console.error("Missing Spotify credentials in environment variables");
       return c.json({ error: "Server configuration error" }, 500);
     }
@@ -102,7 +102,7 @@ app.post("/api/spotify/refresh", async (c) => {
     const CLIENT_ID = process.env.SPOTIFY_CLIENT_ID;
     const CLIENT_SECRET = process.env.SPOTIFY_CLIENT_SECRET;
 
-    if (!CLIENT_ID ?? !CLIENT_SECRET) {
+    if (!CLIENT_ID || !CLIENT_SECRET) {
       console.error("Missing Spotify credentials in environment variables");
       return c.json({ error: "Server configuration error" }, 500);
     }

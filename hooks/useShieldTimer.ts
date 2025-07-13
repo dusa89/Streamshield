@@ -15,7 +15,7 @@ export const useShieldTimer = () => {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
-    if (!isShieldActive ?? !isAutoDisableEnabled ?? shieldDuration === 0) {
+    if (!isShieldActive || !isAutoDisableEnabled || shieldDuration === 0) {
       if (timerRef.current) {
         clearInterval(timerRef.current);
         timerRef.current = null;

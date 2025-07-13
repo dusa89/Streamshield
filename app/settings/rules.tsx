@@ -14,7 +14,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useRulesStore } from "@/stores/rules";
+import { useRulesStore, DeviceRule } from "@/stores/rules";
 import { useAuthStore } from "@/stores/auth";
 import { useThemeStore } from "@/stores/theme";
 import { themes } from "@/constants/colors";
@@ -22,7 +22,7 @@ import { useNavigation } from "@react-navigation/native";
 import FontAwesome from "react-native-vector-icons/FontAwesome";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import DeviceSelector from "@/components/DeviceSelector";
-import { SpotifyDevice } from "@/services/deviceManager";
+import { UserDevice } from "@/types/track";
 
 const DAYS = [
   "Sunday",
@@ -57,12 +57,15 @@ export default function RulesScreen() {
     startTime: Platform.OS === "ios" ? "09:00 AM" : "9:00 AM",
     endTime: Platform.OS === "ios" ? "05:00 PM" : "5:00 PM",
   });
-  const [newDeviceRule, setNewDeviceRule] = useState({
-    deviceId: "",
+  const [newDeviceRule, setNewDeviceRule] = useState<Partial<DeviceRule>>({
     deviceName: "",
     deviceType: "Smart Speaker",
     autoShield: true,
     shieldDuration: 60, // 1 hour default
+    timeEnabled: false,
+    days: [],
+    startTime: "09:00 AM",
+    endTime: "05:00 PM",
   });
 
   const { theme: themePref, colorTheme } = useThemeStore();
@@ -83,7 +86,7 @@ export default function RulesScreen() {
 
   const [editingRule, setEditingRule] = useState<null | {
     type: "Time" | "Device";
-    rule: any;
+    rule: any; // Simplified for this example, consider more specific types
   }>(null);
 
   const handleAddRule = () => {
@@ -116,19 +119,20 @@ export default function RulesScreen() {
     }
   };
 
-  const handleDeviceSelect = (device: SpotifyDevice) => {
+  const handleDeviceSelect = (device: UserDevice) => {
     setNewDeviceRule({
-      deviceId: device.id,
-      deviceName: device.friendlyName ?? device.name,
-      deviceType: device.category ?? device.type,
+      deviceId: device.id ?? undefined,
+      deviceName: device.name,
+      deviceType: device.type,
       autoShield: true,
       shieldDuration: 60,
+      device: device,
     });
     setShowModal(true);
   };
 
   const handleSubmitTimeRule = () => {
-    if (!newTimeRule.name ?? newTimeRule.days.length === 0) return;
+    if (!newTimeRule.name || newTimeRule.days.length === 0) return;
     addTimeRule({
       id: `time${Date.now()}`,
       name: newTimeRule.name,
@@ -147,23 +151,31 @@ export default function RulesScreen() {
   };
 
   const handleSubmitDeviceRule = () => {
-    if (!newDeviceRule.deviceId ?? !newDeviceRule.deviceName) return;
+    if (!newDeviceRule.deviceId || !newDeviceRule.deviceName || !newDeviceRule.device) return;
     addDeviceRule({
       id: `device${Date.now()}`,
       deviceId: newDeviceRule.deviceId,
       deviceName: newDeviceRule.deviceName,
-      deviceType: newDeviceRule.deviceType,
+      deviceType: newDeviceRule.deviceType!,
       enabled: true,
-      autoShield: newDeviceRule.autoShield,
+      autoShield: newDeviceRule.autoShield!,
       shieldDuration: newDeviceRule.shieldDuration,
+      days: newDeviceRule.days!,
+      startTime: newDeviceRule.startTime!,
+      endTime: newDeviceRule.endTime!,
+      timeEnabled: newDeviceRule.timeEnabled!,
+      device: newDeviceRule.device,
     });
     setShowModal(false);
     setNewDeviceRule({
-      deviceId: "",
       deviceName: "",
       deviceType: "Smart Speaker",
       autoShield: true,
       shieldDuration: 60,
+      timeEnabled: false,
+      days: [],
+      startTime: "09:00 AM",
+      endTime: "05:00 PM",
     });
   };
 
@@ -184,6 +196,11 @@ export default function RulesScreen() {
         deviceType: rule.deviceType,
         autoShield: rule.autoShield,
         shieldDuration: rule.shieldDuration,
+        device: rule.device,
+        days: rule.days,
+        startTime: rule.startTime,
+        endTime: rule.endTime,
+        timeEnabled: rule.timeEnabled,
       });
     }
   };
@@ -191,7 +208,7 @@ export default function RulesScreen() {
   const handleSaveEdit = () => {
     if (!editingRule) return;
     if (editingRule.type === "Time") {
-      if (!newTimeRule.name ?? newTimeRule.days.length === 0) return;
+      if (!newTimeRule.name || newTimeRule.days.length === 0) return;
       useRulesStore.getState().editTimeRule(editingRule.rule.id, {
         ...editingRule.rule,
         ...newTimeRule,
@@ -205,7 +222,7 @@ export default function RulesScreen() {
         endTime: "5:00 PM",
       });
     } else {
-      if (!newDeviceRule.deviceId ?? !newDeviceRule.deviceName) return;
+      if (!newDeviceRule.deviceId || !newDeviceRule.deviceName || !newDeviceRule.device) return;
       editDeviceRule(editingRule.rule.id, {
         ...editingRule.rule,
         ...newDeviceRule,
@@ -213,11 +230,14 @@ export default function RulesScreen() {
       setShowModal(false);
       setEditingRule(null);
       setNewDeviceRule({
-        deviceId: "",
         deviceName: "",
         deviceType: "Smart Speaker",
         autoShield: true,
         shieldDuration: 60,
+        timeEnabled: false,
+        days: [],
+        startTime: "09:00 AM",
+        endTime: "05:00 PM",
       });
     }
   };
