@@ -91,8 +91,8 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <trpc.Provider client={trpcClient} queryClient={queryClient}>
-        <QueryClientProvider client={queryClient}>
+        <trpc.Provider client={trpcClient} queryClient={queryClient}>
+          <QueryClientProvider client={queryClient}>
           <AuthGuard>
             <SafeAreaView
               style={{ flex: 1, backgroundColor: theme.background }}
@@ -107,8 +107,8 @@ export default function RootLayout() {
               </Stack>
             </SafeAreaView>
           </AuthGuard>
-        </QueryClientProvider>
-      </trpc.Provider>
+          </QueryClientProvider>
+        </trpc.Provider>
     </GestureHandlerRootView>
   );
 }

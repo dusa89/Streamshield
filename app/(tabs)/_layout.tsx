@@ -67,20 +67,6 @@ export default function TabLayout() {
         />
 
         <Tabs.Screen
-          name="rules"
-          options={{
-            title: "Rules",
-            tabBarIcon: ({ color, focused }) => (
-              <Feather
-                name="clock"
-                size={22}
-                color={color}
-                style={{ opacity: focused ? 1 : 0.7 }}
-              />
-            ),
-          }}
-        />
-        <Tabs.Screen
           name="stats"
           options={{
             title: "Stats",
@@ -187,20 +173,6 @@ export default function TabLayout() {
         }}
       />
 
-      <Tabs.Screen
-        name="rules"
-        options={{
-          title: "Rules",
-          tabBarIcon: ({ color, focused }) => (
-            <Feather
-              name="clock"
-              size={18}
-              color={color}
-              style={{ opacity: focused ? 1 : 0.7 }}
-            />
-          ),
-        }}
-      />
       <Tabs.Screen
         name="history"
         options={{

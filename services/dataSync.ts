@@ -82,20 +82,17 @@ class DataSyncService {
     spotifyTracks: Track[],
   ): Promise<Track[]> {
     try {
-      // Get local tracks
+      // Step 1: Get local tracks from AsyncStorage
       const raw = await AsyncStorage.getItem(RECENTLY_PLAYED_KEY);
       const localTracks: Track[] = raw ? JSON.parse(raw) : [];
 
-      // Merge with cloud data (fetches up to 200 tracks from cloud)
-      const mergedTracks = await cloudSync.mergeHistoryData(
-        spotifyUserId,
-        localTracks,
-      );
+      // Step 2: Get cloud tracks from Supabase
+      const cloudTracks = await cloudSync.fetchHistory(spotifyUserId, 200);
 
-      // Merge with Spotify data
-      const allTracks = [...mergedTracks, ...spotifyTracks];
+      // Step 3: Merge all three sources (Spotify API, local, cloud)
+      const allTracks = [...spotifyTracks, ...localTracks, ...cloudTracks];
 
-      // Deduplicate by id, keeping only the most recent timestamp
+      // Step 4: Deduplicate by track ID, keeping the one with the latest timestamp
       const trackMap = new Map<string, Track>();
       for (const track of allTracks) {
         if (!track.id) continue;
@@ -105,21 +102,19 @@ class DataSyncService {
         }
       }
 
-      // Sort by timestamp desc and return up to 200 tracks
+      // Step 5: Sort by timestamp descending and return up to 200 tracks
       const sortedTracks = Array.from(trackMap.values())
         .sort((a, b) => (b.timestamp ?? 0) - (a.timestamp ?? 0))
         .slice(0, 200);
 
-      
       return sortedTracks;
     } catch (error) {
       console.error("Failed to merge history data:", error);
-      // Fallback to local + Spotify merge
+      // Fallback to a simpler merge of just local + Spotify if cloud fails
       const raw = await AsyncStorage.getItem(RECENTLY_PLAYED_KEY);
       const localTracks: Track[] = raw ? JSON.parse(raw) : [];
       const allTracks = [...localTracks, ...spotifyTracks];
 
-      // Deduplicate
       const trackMap = new Map<string, Track>();
       for (const track of allTracks) {
         if (!track.id) continue;
@@ -133,7 +128,6 @@ class DataSyncService {
         .sort((a, b) => (b.timestamp ?? 0) - (a.timestamp ?? 0))
         .slice(0, 200);
 
-      
       return fallbackTracks;
     }
   }

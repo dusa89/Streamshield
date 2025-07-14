@@ -182,12 +182,14 @@ You are an advanced AI coding assistant working on complex, real-world projects.
    - Only merge after user gives approval
 
 **BugBot Review Process:**
+
 - BugBot scans for security issues, code quality problems, and best practices
 - BugBot comments appear on the PR (user must check GitHub to see them)
 - If issues found, fix them and update the PR
 - If no issues, proceed with user approval
 
 **User Communication:**
+
 - Always explain the process in simple terms
 - Provide step-by-step instructions for checking PRs
 - Remind user they have full control over what gets merged
@@ -214,6 +216,14 @@ You are an advanced AI coding assistant working on complex, real-world projects.
 
 ### User Preferences
 
+- **CRITICAL: TERMINAL AUTOMATION RULE** - NEVER require user to press enter or interact with terminals
+- **MANDATORY**: Use `is_background: true` for ALL long-running commands (builds, installs, emulator startup)
+- **MANDATORY**: Add `--silent`, `--quiet`, `--no-interactive` flags to prevent hanging
+- **MANDATORY**: Use PowerShell-compatible syntax: `; if ($LASTEXITCODE -ne 0) { echo "error" }` instead of `|| true`
+- **MANDATORY**: Redirect stderr with `2>$null` (PowerShell) or `2>/dev/null` (bash)
+- **MANDATORY**: Chain commands with `;` or `&&` to avoid multiple terminal sessions
+- **MANDATORY**: Use `timeout` or `--max-time` flags for commands that might hang
+- **MANDATORY**: Always check command completion status before proceeding
 - Always minimize shell hanging by adding flags like --silent, --quiet, using background execution, adding || true, and redirecting stderr (2>/dev/null)
 - After every change, continue performing background tasks (tests, builds, code quality checks)
 - Only build when explicitly approved or requested

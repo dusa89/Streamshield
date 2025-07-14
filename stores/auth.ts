@@ -19,14 +19,28 @@ export interface AuthTokens {
 }
 
 interface AuthState {
-  isAuthenticated: boolean;
-  user: User | null;
-  tokens: AuthTokens | null;
-  login: (user: User, tokens: AuthTokens) => void;
-  logout: () => void;
-  updateUser: (updates: Partial<User>) => void;
-  updateTokens: (tokens: Partial<AuthTokens>) => void;
-  isHydrating: boolean;
+  tokens: {
+    accessToken: string;
+    refreshToken: string;
+    expiresIn: number;
+    expiresAt: number;
+  } | null;
+  user: {
+    id: string;
+    displayName: string;
+    email: string;
+    avatarUrl?: string;
+  } | null;
+  sessionHistory: Track[];
+  recentTracks: Track[]; // New: Centralized cache for recent tracks
+  isLoggingIn: boolean;
+  isLoggingOut: boolean;
+  login: (redirectUri: string, clientId: string, scopes: string[]) => Promise<void>;
+  logout: () => Promise<void>;
+  exchangeCodeForToken: (code: string, redirectUri: string) => Promise<void>;
+  updateTokens: (newTokens: Partial<AuthState['tokens']>) => void;
+  setSessionHistory: (history: Track[]) => void;
+  setRecentTracks: (tracks: Track[]) => void; // New: Action to update recent tracks
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -60,7 +74,9 @@ export const useAuthStore = create<AuthState>()(
         set((state) => ({
           tokens: state.tokens ? { ...state.tokens, ...updates } : null,
         })),
+      setRecentTracks: (tracks) => set({ recentTracks: tracks }),
       isHydrating: true,
+      recentTracks: [],
     }),
     {
       name: "auth-storage",

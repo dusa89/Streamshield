@@ -37,6 +37,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
 import { SuccessToast } from "@/components/SuccessToast";
+import { useIsFocused } from "@react-navigation/native";
 
 type Tab = "History" | "Exclusions";
 
@@ -50,8 +51,13 @@ export default function HistoryScreen() {
   const effectiveTheme = themePref === "auto" ? colorScheme ?? "light" : themePref;
   const theme = themes[colorTheme][effectiveTheme];
 
-  const { tokens, user } = useAuthStore();
-  const { getAllExclusionPlaylists, robustlyRemoveTracksFromExclusionPlaylist } = useProtectionMechanism();
+  const { tokens, user, recentTracks } = useAuthStore();
+  const { 
+    getAllExclusionPlaylists, 
+    robustlyRemoveTracksFromExclusionPlaylist,
+    robustlyAddTracksInBatch,
+    robustlyRemoveTracksInBatch,
+  } = useProtectionMechanism();
   const isTimestampShielded = useShieldStore((s) => s.isTimestampShielded);
 
   const [history, setHistory] = useState<HistoryItem[]>([]);
@@ -59,6 +65,7 @@ export default function HistoryScreen() {
   const [activeTab, setActiveTab] = useState<Tab>("History");
   const [loading, setLoading] = useState(true);
   const [exclusionLoading, setExclusionLoading] = useState(false);
+  const [undoLoading, setUndoLoading] = useState(false);
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedTrackIds, setSelectedTrackIds] = useState<string[]>([]);
   const [excludeModalVisible, setExcludeModalVisible] = useState(false);
@@ -71,6 +78,7 @@ export default function HistoryScreen() {
   const navigation = useNavigation();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const isFocused = useIsFocused();
 
   const headerTranslateY = useRef(new Animated.Value(0)).current;
   const lastScrollY = useRef(0);
@@ -133,30 +141,56 @@ export default function HistoryScreen() {
     lastScrollY.current = currentY;
   };
 
-  const fetchListeningHistory = async () => {
-      if (!tokens?.accessToken || !user) return;
-      try {
-        const spotifyTracks = await SpotifyService.getRecentlyPlayed();
-      const merged = await dataSync.getMergedHistory(spotifyTracks, user.id);
-        const mapped: HistoryItem[] = merged.map((track) => ({
-          id: track.id,
-          timestamp: track.timestamp ?? Date.now(),
-          title: track.name,
-          description: track.artist,
-        shielded: track.timestamp ? isTimestampShielded(track.timestamp) : false,
-          tags: [],
-          tracks: 1,
-          albumArt: track.albumArt,
-          artistId: track.artistId,
-          albumId: track.albumId,
-          albumName: track.album,
-        }));
-        setHistory(mapped);
-      } catch (e) {
-      console.error("Failed to load listening history:", e);
-        Toast.show("Failed to load listening history.");
+  // This is the primary data fetching function for the history screen.
+  // It now uses the cached recent tracks from the auth store by default.
+  const fetchListeningHistory = useCallback(async (forceApiRefresh = false) => {
+    console.log(`History: Starting fetch. Force refresh: ${forceApiRefresh}`);
+    if (!user) {
+      console.log("History: No user, aborting.");
+      return;
+    }
+
+    try {
+      let tracksFromSpotify: Track[] = recentTracks; // Use cached tracks by default
+
+      if (forceApiRefresh) {
+        console.log("History: Forcing API refresh.");
+        if (!tokens?.accessToken) {
+          console.log("History: No token for forced refresh, aborting.");
+          return;
+        }
+        tracksFromSpotify = await SpotifyService.getRecentlyPlayed();
+        console.log(`History: Got ${tracksFromSpotify.length} tracks from Spotify API.`);
+      } else {
+        console.log(`History: Using ${recentTracks.length} cached recent tracks.`);
       }
-    };
+
+      console.log("History: Merging with local/cloud data.");
+      const merged = await dataSync.getMergedHistory(user.id, tracksFromSpotify);
+      console.log(`History: Merged into ${merged.length} total tracks.`);
+
+      const mapped: HistoryItem[] = merged.map((track) => ({
+        id: track.id,
+        timestamp: track.timestamp ?? Date.now(),
+        title: track.name,
+        description: track.artist,
+        shielded: track.timestamp ? isTimestampShielded(track.timestamp) : false,
+        tags: [],
+        tracks: 1,
+        albumArt: track.albumArt,
+        artistId: track.artistId,
+        albumId: track.albumId,
+        albumName: track.album,
+      }));
+      
+      console.log("History: Setting new history state.");
+      setHistory(mapped);
+
+    } catch (e) {
+      console.error("Failed to load listening history:", e);
+      Toast.show("Failed to load listening history.");
+    }
+  }, [user, tokens?.accessToken, recentTracks, isTimestampShielded]);
 
   const fetchExclusionHistory = async (forceRefresh = false) => {
     if (!tokens?.accessToken || !user) return;
@@ -187,10 +221,28 @@ export default function HistoryScreen() {
           tokens.accessToken,
           playlist.id,
         );
-        const tracks = playlistItems
-          .map((item: any) => item.track)
-          .filter(Boolean); // Filter out any null/undefined tracks
-        allTracks = [...allTracks, ...tracks];
+        const mappedTracks: (Partial<Track> | null)[] = playlistItems
+          .map((item: any) => {
+            const track = item.track;
+            if (!track || !track.id) return null;
+            return {
+              id: track.id,
+              name: track.name,
+              artist: track.artists.map((a: any) => a.name).join(", "),
+              artistId: track.artists[0]?.id,
+              album: track.album.name,
+              albumId: track.album.id,
+              albumArt: track.album.images?.[0]?.url ?? "",
+              duration: track.duration_ms,
+              timestamp: item.added_at
+                ? new Date(item.added_at).getTime()
+                : Date.now(),
+            };
+          });
+        const validTracks: Track[] = mappedTracks.filter(
+          (t): t is Track => t?.id !== undefined
+        );
+        allTracks = [...allTracks, ...validTracks];
       }
 
       // Update cache
@@ -214,9 +266,9 @@ export default function HistoryScreen() {
     try {
       // Force refresh when user manually refreshes
       if (activeTab === "History") {
-        await fetchListeningHistory();
+        await fetchListeningHistory(true); // Force API refresh
       } else {
-        await fetchExclusionHistory(true); // Force refresh
+        await fetchExclusionHistory(true); // Force cache bypass
       }
       // Also refresh exclusion state to update shield icons
       await refreshExclusionState();
@@ -226,7 +278,7 @@ export default function HistoryScreen() {
     } finally {
       setRefreshing(false);
     }
-  }, [activeTab, refreshExclusionState]);
+  }, [activeTab, refreshExclusionState, fetchListeningHistory, fetchExclusionHistory]);
 
   // Refresh button animation
   const animateRefreshButton = useCallback(() => {
@@ -265,21 +317,19 @@ export default function HistoryScreen() {
     refreshExclusionState();
   }, [refreshExclusionState]);
 
+  // This effect runs when the screen comes into focus.
   useEffect(() => {
-    const loadData = async () => {
+    if (isFocused) {
+      console.log("History screen focused, refreshing data from cache...");
       setLoading(true);
-      
-      // Load data in parallel for better performance
       if (activeTab === "History") {
-        await fetchListeningHistory();
+        fetchListeningHistory(false).finally(() => setLoading(false)); // Don't force API refresh
       } else {
-        await fetchExclusionHistory();
+        fetchExclusionHistory().finally(() => setLoading(false));
       }
-      
-      setLoading(false);
-    };
-    loadData();
-  }, [tokens?.accessToken, activeTab]);
+    }
+  }, [isFocused, activeTab, fetchListeningHistory]);
+
 
   useEffect(() => {
     navigation.setOptions({
@@ -399,14 +449,14 @@ export default function HistoryScreen() {
               id: track.id,
               timestamp: track.timestamp ?? Date.now(),
               title: track.name,
-              description: track.artists?.map((a) => a.name).join(", ") ?? "Unknown Artist",
+              description: track.artist ?? "Unknown Artist",
               shielded: false,
               tags: [],
               tracks: 1,
-              albumArt: track.album?.images?.[0]?.url,
-              artistId: track.artists?.[0]?.id,
-              albumId: track.album?.id,
-              albumName: track.album?.name ?? "Unknown Album",
+              albumArt: track.albumArt,
+              artistId: track.artistId,
+              albumId: track.albumId,
+              albumName: track.album ?? "Unknown Album",
           };
 
           return <TrackRow 
@@ -564,8 +614,8 @@ export default function HistoryScreen() {
             snapPoints={["50%"]}
             enablePanDownToClose
           onDismiss={() => setSelectedTrack(null)}
-            onSnapToIndexChange={(index) => {
-              if (index === 0) {
+            onChange={(index: number) => {
+              if (index === -1) { // Modal is closed
                 setSelectedTrack(null);
               }
             }}
@@ -589,11 +639,18 @@ export default function HistoryScreen() {
                     <Pressable
                     style={[styles.bottomSheetActionButton, { backgroundColor: theme.tint }]}
                       onPress={() => {
-                      if(selectedTrack) {
-                        robustlyRemoveTracksFromExclusionPlaylist(tokens.accessToken, user.id, [selectedTrack]);
+                      if(selectedTrack && tokens?.accessToken && user) {
+                        const trackToUnexclude: Track = {
+                          id: selectedTrack.id,
+                          name: selectedTrack.title,
+                          artist: selectedTrack.description,
+                          album: selectedTrack.albumName ?? 'Unknown Album',
+                          albumArt: selectedTrack.albumArt ?? '',
+                        };
+                        robustlyRemoveTracksFromExclusionPlaylist(tokens.accessToken, user.id, [trackToUnexclude]);
                         Toast.show("Track removed from exclusion.");
                         refreshExclusionState();
-                        setSelectedTrack(null);
+                        bottomSheetRef.current?.dismiss();
                       }
                     }}
                   >
@@ -604,7 +661,7 @@ export default function HistoryScreen() {
                     style={[styles.bottomSheetActionButton, { backgroundColor: theme.border }]}
                       onPress={() => {
                       setSelectedTrack(null);
-                      openMenu(selectedTrack);
+                      bottomSheetRef.current?.dismiss();
                     }}
                   >
                     <Feather name="edit" size={24} color={theme.text} />
@@ -643,14 +700,25 @@ export default function HistoryScreen() {
                   return;
                 }
                 setExcludeModalVisible(false);
-                setExcludeLoading(true);
-                const tracksToExclude = history.filter(t => selectedTrackIds.includes(t.id));
-                await ProtectionMechanism.robustlyAddTracksInBatch(
+                setExclusionLoading(true);
+                const tracksToExclude = history
+                  .filter(t => selectedTrackIds.includes(t.id))
+                  .map((item): Track => ({
+                    id: item.id,
+                    name: item.title,
+                    artist: item.description,
+                    album: item.albumName ?? 'Unknown Album',
+                    albumArt: item.albumArt ?? '',
+                    artistId: item.artistId,
+                    albumId: item.albumId,
+                    timestamp: item.timestamp,
+                  }));
+                await robustlyAddTracksInBatch(
                   tokens.accessToken,
                   user.id,
                   tracksToExclude,
                 );
-                setExcludeLoading(false);
+                setExclusionLoading(false);
                 clearSelectionMode();
                 await refreshExclusionState();
               }}
@@ -668,7 +736,7 @@ export default function HistoryScreen() {
                   return;
                 }
                 setExcludeModalVisible(false);
-                setExcludeLoading(true);
+                setExclusionLoading(true);
                 const albumsToExclude = new Set(history.filter(t => selectedTrackIds.includes(t.id)).map(t => t.albumId));
                 let allAlbumTracks: Track[] = [];
                 for (const albumId of albumsToExclude) {
@@ -677,12 +745,12 @@ export default function HistoryScreen() {
                     allAlbumTracks.push(...albumTracks);
                   }
                 }
-                await ProtectionMechanism.robustlyAddTracksInBatch(
+                await robustlyAddTracksInBatch(
                   tokens.accessToken,
                   user.id,
                   allAlbumTracks,
                 );
-                setExcludeLoading(false);
+                setExclusionLoading(false);
                 clearSelectionMode();
                 await refreshExclusionState();
               }}
@@ -700,7 +768,7 @@ export default function HistoryScreen() {
                   return;
                 }
                 setExcludeModalVisible(false);
-                setExcludeLoading(true);
+                setExclusionLoading(true);
                 const artistsToExclude = new Set(history.filter(t => selectedTrackIds.includes(t.id)).map(t => t.artistId));
                 let allArtistTracks: Track[] = [];
                 for (const artistId of artistsToExclude) {
@@ -709,12 +777,12 @@ export default function HistoryScreen() {
                     allArtistTracks.push(...artistTracks);
                   }
                 }
-                await ProtectionMechanism.robustlyAddTracksInBatch(
+                await robustlyAddTracksInBatch(
                   tokens.accessToken,
                   user.id,
                   allArtistTracks,
                 );
-                setExcludeLoading(false);
+                setExclusionLoading(false);
                 clearSelectionMode();
                 await refreshExclusionState();
               }}
@@ -753,8 +821,19 @@ export default function HistoryScreen() {
                 }
                 setUndoModalVisible(false);
                 setUndoLoading(true);
-                const tracksToUndo = history.filter(t => selectedTrackIds.includes(t.id));
-                await ProtectionMechanism.robustlyRemoveTracksInBatch(
+                const tracksToUndo = history
+                  .filter(t => selectedTrackIds.includes(t.id))
+                  .map((item): Track => ({
+                    id: item.id,
+                    name: item.title,
+                    artist: item.description,
+                    album: item.albumName ?? 'Unknown Album',
+                    albumArt: item.albumArt ?? '',
+                    artistId: item.artistId,
+                    albumId: item.albumId,
+                    timestamp: item.timestamp,
+                  }));
+                await robustlyRemoveTracksInBatch(
                   tokens.accessToken,
                   user.id,
                   tracksToUndo,
@@ -786,7 +865,7 @@ export default function HistoryScreen() {
                     allAlbumTracks.push(...albumTracks);
                   }
                 }
-                await ProtectionMechanism.robustlyRemoveTracksInBatch(
+                await robustlyRemoveTracksInBatch(
                   tokens.accessToken,
                   user.id,
                   allAlbumTracks,
@@ -818,7 +897,7 @@ export default function HistoryScreen() {
                     allArtistTracks.push(...artistTracks);
                   }
                 }
-                await ProtectionMechanism.robustlyRemoveTracksInBatch(
+                await robustlyRemoveTracksInBatch(
                   tokens.accessToken,
                   user.id,
                   allArtistTracks,

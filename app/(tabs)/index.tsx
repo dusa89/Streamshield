@@ -56,7 +56,7 @@ const pastelColors = {
 const HEADER_CONTENT_HEIGHT = 48; // Facebook-style compact header height
 
 export default function ShieldScreen() {
-  const { user, tokens } = useAuthStore();
+  const { user, tokens, recentTracks } = useAuthStore();
   const {
     isShieldActive,
     toggleShield,
@@ -74,7 +74,6 @@ export default function ShieldScreen() {
 
   const {
     currentTrack,
-    recentTracks,
     isPlaying,
     isLoading,
     refreshCurrentlyPlaying,
@@ -308,56 +307,31 @@ export default function ShieldScreen() {
     }
   }, [tokens?.accessToken, user]); // Refresh when access token or user becomes available
 
-  // Set up periodic refresh only when authenticated
+  // This effect handles the periodic refresh of the "currently playing" track.
   useEffect(() => {
-    if (!tokens?.accessToken || !user) {
+    // We only want to set up an interval if the user is logged in.
+    if (!tokens?.accessToken) {
       console.log("User not authenticated, skipping periodic refresh setup");
       return;
     }
 
-    // Determine refresh interval based on shield state and playback
     const getRefreshInterval = () => {
-      if (!isShieldActive) {
-        // When shield is off, refresh less frequently (3 minutes)
-        return 180000; // 3 minutes
-      } else if (isPlaying) {
-        // When shield is on and music is playing, check every 45 seconds
-        return 45000; // 45 seconds
-      } else {
-        // When shield is on but no music playing, check every 2 minutes
-        return 120000; // 2 minutes
-      }
+      // Refresh more frequently if music is playing to keep the UI responsive.
+      const newInterval = isPlaying ? 45 : 120; // in seconds
+      console.log(`[ShieldScreen] Setting refresh interval to ${newInterval}s`);
+      return newInterval * 1000;
     };
 
-    let refreshInterval: ReturnType<typeof setInterval> | null = null;
-    
-    const setupInterval = () => {
-      if (refreshInterval) clearInterval(refreshInterval);
-      const interval = getRefreshInterval();
-      console.log(`[ShieldScreen] Setting refresh interval to ${interval/1000}s`);
-      refreshInterval = setInterval(() => {
-        // Only refresh if we have valid tokens and user
-        if (tokens?.accessToken && user) {
-        refreshCurrentlyPlaying();
-        }
-      }, interval);
-    };
+    const intervalId = setInterval(() => {
+      console.log("[ShieldScreen] Performing periodic refresh...");
+      refreshCurrentlyPlaying();
+    }, getRefreshInterval());
 
-    // Set up initial interval
-    setupInterval();
+    // Cleanup function to clear the interval when the component unmounts
+    // or when the dependencies of this effect change.
+    return () => clearInterval(intervalId);
+  }, [isPlaying, tokens?.accessToken, refreshCurrentlyPlaying]);
 
-    // Update interval when shield state or playback changes
-    const unsubscribe = useShieldStore.subscribe((state) => {
-      if (state.isShieldActive !== isShieldActive) {
-        setupInterval();
-      }
-    });
-
-    return () => {
-      if (refreshInterval) clearInterval(refreshInterval);
-      unsubscribe();
-    };
-  }, [tokens?.accessToken, isShieldActive, isPlaying]);
 
   // Sync shield state with protection mechanism
   useEffect(() => {
@@ -547,13 +521,33 @@ export default function ShieldScreen() {
     </View>
   );
 
+  const HEADER_HEIGHT = insets.top + HEADER_CONTENT_HEIGHT;
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const headerTranslateY = scrollY.interpolate({
+    inputRange: [0, HEADER_HEIGHT * 1.2],
+    outputRange: [0, -HEADER_HEIGHT],
+    extrapolate: "clamp",
+  });
+  const headerOpacity = scrollY.interpolate({
+    inputRange: [0, HEADER_HEIGHT * 0.7],
+    outputRange: [1, 0.2],
+    extrapolate: "clamp",
+  });
+  let lastScrollY = 0;
+  let isScrollingUp = false;
+
+  const onScroll = Animated.event(
+    [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+    { useNativeDriver: true }
+  );
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
       <View style={{ flex: 1 }}>
-        <ScrollView
+        <Animated.ScrollView
           style={styles.scrollView}
-          contentContainerStyle={{ paddingTop: totalHeaderHeight }}
-          scrollIndicatorInsets={{ top: totalHeaderHeight }}
+          contentContainerStyle={{ paddingTop: HEADER_HEIGHT }}
+          scrollIndicatorInsets={{ top: HEADER_HEIGHT }}
           contentInsetAdjustmentBehavior="never"
           refreshControl={
             <RefreshControl
@@ -562,7 +556,8 @@ export default function ShieldScreen() {
               tintColor={theme.tint}
             />
           }
-          onScroll={scrollHandler}
+          onScroll={onScroll}
+          scrollEventThrottle={16}
         >
           {/* Batch Exclusion Progress Indicator */}
           {batchExcludeProgress && (
@@ -613,7 +608,7 @@ export default function ShieldScreen() {
                     }
                     style={styles.shieldCard}
                 >
-                    <Pressable style={styles.shieldSettingsButton} onPress={() => router.push('/settings/shield')}>
+                    <Pressable style={styles.shieldSettingsButton} onPress={() => router.push("/settings/shield")}>
                         <MaterialCommunityIcons 
                             name="cog"
                             size={24}
@@ -1138,7 +1133,7 @@ export default function ShieldScreen() {
               </View>
             )}
           </View>
-        </ScrollView>
+        </Animated.ScrollView>
 
         {isSelectionMode && (
           <Animated.View
@@ -1185,7 +1180,34 @@ export default function ShieldScreen() {
         )}
 
         {/* Floating Header - Facebook Style Solid Implementation */}
-        <Header />
+        <Animated.View
+          style={[
+            styles.header,
+            {
+              height: HEADER_HEIGHT,
+              backgroundColor: theme.background,
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              zIndex: 10,
+              transform: [{ translateY: headerTranslateY }],
+              opacity: headerOpacity,
+              elevation: 10,
+              shadowColor: "#000",
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.1,
+              shadowRadius: 8,
+            },
+          ]}
+        >
+          <View style={styles.headerContent}>
+            <Text style={[styles.headerTitle, { color: theme.text }]}>StreamShield ™</Text>
+            <Pressable onPress={() => router.push("/settings")}> 
+              <FontAwesome name="cog" size={24} color={theme.text} />
+            </Pressable>
+          </View>
+        </Animated.View>
       </View>
 
       <ExclusionInstructionsModal

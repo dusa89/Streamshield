@@ -1,5 +1,4 @@
 
-
 # Mandatory Agent Guidelines
 
 ## Core AI Assistant Guidelines
@@ -135,9 +134,14 @@
 ### 24. Terminal Automation & User Experience
 
 - **CRITICAL**: Minimize user interaction requirements in terminal operations
-- Use background execution (`is_background: true`) for long-running processes
-- Add flags like `--silent`, `--quiet`, `|| true` to prevent hanging
-- Redirect stderr (`2>/dev/null`) to avoid noise
+- **MANDATORY**: Use `is_background: true` for ALL long-running processes (builds, installs, emulator startup)
+- **MANDATORY**: Add flags like `--silent`, `--quiet`, `--no-interactive` to prevent hanging
+- **MANDATORY**: Use PowerShell-compatible syntax: `; if ($LASTEXITCODE -ne 0) { echo "error" }` instead of `|| true`
+- **MANDATORY**: Redirect stderr with `2>$null` (PowerShell) or `2>/dev/null` (bash)
+- **MANDATORY**: Chain commands with `;` or `&&` to avoid multiple terminal sessions
+- **MANDATORY**: Use `timeout` or `--max-time` flags for commands that might hang
+- **MANDATORY**: Always check command completion status before proceeding
+- **MANDATORY**: NEVER require user to press enter or interact with terminals
 - Automate multi-step processes without requiring user confirmation
 - Design workflows to be "autopilot" - user should be involved as little as possible
 - Use non-interactive commands and avoid prompts that require user input

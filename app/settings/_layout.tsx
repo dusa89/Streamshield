@@ -23,7 +23,7 @@ export default function SettingsStackLayout() {
         headerShadowVisible: false, // Removes the shadow line on iOS
       }}
     >
-      <Stack.Screen name="index" options={{ title: "Settings", headerShown: false }} />
+      <Stack.Screen name="index" options={{ title: "Settings", headerShown: true }} />
       <Stack.Screen name="activity-tags" options={{ title: "Activity Tags" }} />
       <Stack.Screen name="shield" options={{ title: "Shield Settings" }} />
       <Stack.Screen name="notifications" options={{ title: "Notifications" }} />

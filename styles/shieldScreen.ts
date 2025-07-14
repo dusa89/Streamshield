@@ -39,7 +39,7 @@ export const createStyles = (theme: Theme) => {
       paddingHorizontal: 16,
     },
     shieldContainer: {
-        alignItems: 'center', // Horizontally center the content
+        alignItems: "center", // Horizontally center the content
         paddingHorizontal: 16,
         marginTop: 8,
         marginBottom: 24,
@@ -51,17 +51,17 @@ export const createStyles = (theme: Theme) => {
     shieldCard: {
         borderRadius: 20,
         padding: 24,
-        alignItems: 'center',
-        justifyContent: 'center',
+        alignItems: "center",
+        justifyContent: "center",
         elevation: 8,
         shadowColor: theme.shadow,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.1,
         shadowRadius: 12,
-        overflow: 'hidden',
+        overflow: "hidden",
       },
     shieldSettingsButton: {
-        position: 'absolute',
+        position: "absolute",
         top: 16,
         right: 16,
         zIndex: 1,

@@ -1,75 +1,49 @@
 import { useEffect, useRef } from "react";
 import { useAuthStore } from "@/stores/auth";
-import { useShieldStore } from "@/stores/shield";
 import { useProtectionMechanism } from "@/services/protectionMechanism";
-import { ensureValidExclusionPlaylist as ensurePlaylist } from "@/services/spotify";
 
 export const useInitialization = (setShowInstructions: (show: boolean) => void) => {
   const { user, tokens } = useAuthStore();
   const {
+    initialize,
     hasShownInstructions,
-    removeDuplicateTracksFromPlaylist,
   } = useProtectionMechanism();
   
-  const initialCheckRan = useRef(false);
-  const consolidationCheckRan = useRef(false);
+  const initializationRan = useRef(false);
 
-  // Check if we need to show the exclusion instructions
+  // This single effect handles all app initialization logic.
   useEffect(() => {
-    const checkInstructions = async () => {
-      const hasShown = await hasShownInstructions();
-      if (!hasShown) {
-        const timer = setTimeout(() => {
-          setShowInstructions(true);
-        }, 1000);
-        return () => clearTimeout(timer);
-      }
-    };
-    checkInstructions();
-  }, [hasShownInstructions, setShowInstructions]);
+    if (user && tokens?.accessToken && !initializationRan.current) {
+      initializationRan.current = true;
+      
+      console.log("[Initialization] User authenticated. Starting initialization checks.");
 
-  // Ensure valid exclusion playlist on app start
-  useEffect(() => {
-    if (user && tokens?.accessToken && !initialCheckRan.current) {
-      initialCheckRan.current = true;
-      (async () => {
-        try {
-          await ensurePlaylist(
-            tokens.accessToken,
-            user.id,
-            null, // Let the function find the playlist
-          );
-        } catch (error) {
-          console.error("Failed to ensure valid exclusion playlist:", error);
+      // Check 1: Show exclusion playlist instructions if they haven't been seen.
+      const checkInstructions = async () => {
+        const hasShown = await hasShownInstructions();
+        if (!hasShown) {
+          // Use a short delay to allow the app to settle before showing the modal.
+          const timer = setTimeout(() => {
+            console.log("[Initialization] Showing exclusion playlist instructions.");
+            setShowInstructions(true);
+          }, 2000);
+          return () => clearTimeout(timer);
         }
-      })();
-    }
-  }, [user, tokens?.accessToken]);
+      };
+      checkInstructions();
 
-  // Remove duplicates and consolidate playlists on app start
-  useEffect(() => {
-    if (user && tokens?.accessToken && !consolidationCheckRan.current) {
-      consolidationCheckRan.current = true;
-      const shieldStore = useShieldStore.getState();
-      const lastConsolidation = shieldStore.lastConsolidation || 0;
-      const hasRunThisSession = shieldStore.hasRunDuplicateRemovalThisSession;
-      const now = Date.now();
-      const hoursSinceLastConsolidation = (now - lastConsolidation) / (1000 * 60 * 60);
+      // Check 2: Run the main protection mechanism initialization (including consolidation)
+      // We run this after a 30-second delay to avoid blocking the main thread on startup.
+      const initialConsolidationTimer = setTimeout(() => {
+        console.log("[Initialization] Triggering initial playlist consolidation (30s delay).");
+        initialize(tokens.accessToken, user.id).catch((err) => {
+          console.error("[Initialization] Initial playlist consolidation failed:", err);
+        });
+      }, 30 * 1000); // 30 seconds
 
-      if (hoursSinceLastConsolidation > 24 && !hasRunThisSession) {
-        (async () => {
-          try {
-            await removeDuplicateTracksFromPlaylist(
-              tokens.accessToken,
-              user.id,
-            );
-            shieldStore.setLastConsolidation(now);
-            shieldStore.setHasRunDuplicateRemovalThisSession(true);
-          } catch (error) {
-            console.error("Failed to run daily consolidation:", error);
-          }
-        })();
-      }
+      return () => {
+        clearTimeout(initialConsolidationTimer);
+      };
     }
-  }, [user, tokens?.accessToken, removeDuplicateTracksFromPlaylist]);
+  }, [user, tokens, initialize, hasShownInstructions, setShowInstructions]);
 }; 

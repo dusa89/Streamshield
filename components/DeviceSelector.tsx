@@ -180,7 +180,7 @@ const styles = StyleSheet.create({
   },
   disclaimer: {
     fontSize: 13,
-    textAlign: 'center',
+    textAlign: "center",
     marginBottom: 15,
     marginHorizontal: 10,
   },

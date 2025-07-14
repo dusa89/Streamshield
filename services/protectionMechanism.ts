@@ -2,6 +2,7 @@ import { Track } from "@/types/track";
 import * as SpotifyService from "./spotify";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Alert } from "react-native";
+import { useMemo } from "react";
 
 // This file implements the "Mechanism of Protection" for StreamShield
 // Based on research of Spotify API capabilities, this implements the most effective
@@ -74,6 +75,75 @@ class ProtectionMechanism {
   }
 
   /**
+   * Gets the primary exclusion playlist, creating or consolidating if necessary.
+   * This is the new centralized logic to prevent duplicate playlists.
+   * @param accessToken
+   * @param userId
+   */
+  private async getPrimaryExclusionPlaylist(
+    accessToken: string,
+    userId: string,
+  ): Promise<string> { // This promise must resolve with a string, not null.
+    if (this.playlistCreationPromise) {
+      return this.playlistCreationPromise;
+    }
+
+    this.playlistCreationPromise = (async () => {
+      try {
+        // First, check if we have a valid, cached playlist ID that still exists
+        if (this.shieldPlaylistId) {
+          try {
+            const playlist = await SpotifyService.findUserPlaylist(undefined, this.shieldPlaylistId);
+            if (playlist) {
+              return this.shieldPlaylistId; // Cached ID is valid
+            }
+          } catch (e) {
+            console.log("Cached playlist ID no longer valid, re-evaluating.");
+            this.shieldPlaylistId = null; // Invalidate cache
+          }
+        }
+
+        // Get all playlists that match the StreamShield name
+        const allExclusionPlaylists = await this.getAllExclusionPlaylists(accessToken, userId);
+
+        let playlistId: string | null = null;
+
+        if (allExclusionPlaylists.length > 1) {
+          console.log(`Found ${allExclusionPlaylists.length} exclusion playlists. Consolidating...`);
+          await this.consolidatePlaylists(accessToken, userId);
+          // After consolidation, there should be only one primary playlist. Re-fetch to get it.
+          const afterConsolidation = await this.getAllExclusionPlaylists(accessToken, userId);
+          if (afterConsolidation.length > 0) {
+            playlistId = afterConsolidation[0].id;
+          }
+        } else if (allExclusionPlaylists.length === 1) {
+          console.log("Found one existing exclusion playlist.");
+          playlistId = allExclusionPlaylists[0].id;
+        } else {
+          // If we're here, no playlists exist, so create one.
+          console.log("No exclusion playlists found. Creating a new one.");
+          const newPlaylist = await SpotifyService.createUserPlaylistWithRefresh(
+            userId,
+            ProtectionMechanism.PLAYLIST_PREFIX
+          );
+          playlistId = newPlaylist.id;
+        }
+
+        if (!playlistId) {
+          throw new Error("Failed to find or create a StreamShield playlist.");
+        }
+
+        this.shieldPlaylistId = playlistId;
+        return this.shieldPlaylistId;
+
+      } finally {
+        this.playlistCreationPromise = null; // Clear promise after completion
+      }
+    })();
+    return this.playlistCreationPromise;
+  }
+
+  /**
    * Initializes the protection mechanism for the user.
    * @param accessToken Spotify access token
    * @param userId Spotify user ID
@@ -87,12 +157,7 @@ class ProtectionMechanism {
       console.log(
         `[ProtectionMechanism] Initializing protection mechanism for user: ${userId}`,
       );
-      // Use the new centralized function from SpotifyService
-      this.shieldPlaylistId = await SpotifyService.ensureValidExclusionPlaylist(
-        accessToken,
-        userId,
-        this.shieldPlaylistId,
-      );
+      this.shieldPlaylistId = await this.getPrimaryExclusionPlaylist(accessToken, userId);
       return true;
     } catch (error) {
       console.error("Failed to initialize protection mechanism:", error);
@@ -168,170 +233,63 @@ class ProtectionMechanism {
     return this.activatedAt;
   }
 
-  /**
-   * Finds all StreamShield exclusion playlists for a user
+    /**
+   * Finds all StreamShield exclusion playlists for a user, sorted by creation date (oldest first).
    * @param accessToken Spotify access token
    * @param userId Spotify user ID
-   * @returns Promise<Array<{id: string, name: string, trackCount: number}>>
+   * @returns Promise<Array<{id: string, name: string, trackCount: number, creationDate: string | null}>>
    */
   public async getAllExclusionPlaylists(
-    _accessToken: string,
+    accessToken: string,  // Renamed from _accessToken to indicate usage
     _userId: string,
-  ): Promise<Array<{ id: string; name: string; trackCount: number }>> {
+  ): Promise<Array<{ id: string; name: string; trackCount: number; creationDate: string | null }>> {
     try {
       const userPlaylists = await SpotifyService.getUserPlaylists();
-
-      const exclusionPlaylists = userPlaylists
+  
+      const exclusionPlaylistsInfo = userPlaylists
         .filter((playlist: any) =>
           playlist?.name?.startsWith(ProtectionMechanism.PLAYLIST_PREFIX),
         )
-        .map((playlist: any) => {
-          const trackCount = playlist.tracks?.total ?? 0;
-          return {
-            id: playlist.id,
-            name: playlist.name,
-            trackCount: trackCount,
-          };
-        })
-        .sort((a: any, b: any) => {
-          // Sort by playlist number (if named "StreamShield Protected Session #2", etc.)
-          const aNum = this.extractPlaylistNumber(a.name);
-          const bNum = this.extractPlaylistNumber(b.name);
-          return aNum - bNum;
-        });
-
-      return exclusionPlaylists;
-    } catch (error) {
-      console.error("Failed to get exclusion playlists:", error);
-      // Re-throw the error so it can be handled by the caller (e.g., fetchWithAutoRefresh)
-      // This prevents the app from incorrectly assuming no playlists exist on a temporary failure
-      throw error;
-    }
-  }
-
-  /**
-   * Extracts playlist number from name (e.g., "StreamShield Protected Session #2" -> 2)
-   * @param playlistName The playlist name
-   * @returns number The playlist number (1 for base name, 2+ for numbered playlists)
-   */
-  private extractPlaylistNumber(playlistName: string): number {
-    const match = playlistName.match(/#(\d+)$/);
-    return match ? parseInt(match[1]) : 1;
-  }
-
-  /**
-   * Gets the best available exclusion playlist for adding tracks
-   * Prioritizes playlists with the most available space to maximize efficiency
-   * @param accessToken Spotify access token
-   * @param userId Spotify user ID
-   * @returns Promise<string> The playlist ID
-   */
-  public async getNextAvailablePlaylist(
-    accessToken: string,
-    userId: string,
-  ): Promise<string> {
-    const playlists = await this.getAllExclusionPlaylists(accessToken, userId);
-
-    // If multiple playlists exist, consolidate them first
-    if (playlists.length > 1) {
-      const consolidationResult = await this.consolidatePlaylists(accessToken, userId);
-      if (consolidationResult.consolidated) {
-        // After consolidation, get the single remaining playlist
-        const consolidatedPlaylists = await this.getAllExclusionPlaylists(accessToken, userId);
-        if (consolidatedPlaylists.length > 0) {
-          return consolidatedPlaylists[0].id;
-        }
-      }
-    }
-
-    // Find playlists that aren't full (Spotify limit is 10,000 tracks)
-    const availablePlaylists = playlists.filter(
-      (playlist) => playlist.trackCount < 10000,
-    );
-
-    if (availablePlaylists.length > 0) {
-      // Playlists are available, continue with logic below
-    } else {
-      
-      // Before creating a new playlist, try to clean up old tracks from existing playlists
-      // This can free up space and avoid creating new playlists
-      for (const playlist of playlists) {
-        try {
-          const tracks = await SpotifyService.getAllTracksInPlaylist(accessToken, playlist.id);
-          
-          // Remove tracks older than 30 days to free up space
-          const thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
-          const oldTracks = tracks.filter((item: any) => {
-            const addedAt = new Date(item.added_at).getTime();
-            return addedAt < thirtyDaysAgo;
-          });
-          
-          if (oldTracks.length > 0) {
-            const trackUris = oldTracks.map((track: any) => track.track?.uri).filter(Boolean);
-            await SpotifyService.removeTracksFromPlaylistBatched(accessToken, playlist.id, trackUris);
-            
-            // Check if we now have space
-            const updatedPlaylist = await SpotifyService.findUserPlaylist(accessToken, playlist.id);
-            if (updatedPlaylist && updatedPlaylist.tracks?.total < 10000) {
-              return playlist.id;
-            }
+        .map((playlist: any) => ({
+          id: playlist.id,
+          name: playlist.name,
+          trackCount: playlist.tracks?.total ?? 0,
+          creationDate: null, // Will be populated below
+        }));
+  
+      for (const p of exclusionPlaylistsInfo) {
+        if (p.trackCount > 0) {
+          const tracks = await SpotifyService.getFirstPlaylistTrack(accessToken, p.id);
+          if (tracks.length > 0 && tracks[0].added_at) {
+            p.creationDate = tracks[0].added_at;
           }
-        } catch (error) {
-          console.error(`[ProtectionMechanism] Error cleaning up playlist ${playlist.name}:`, error);
         }
       }
-      
-      // If cleanup didn't work, create a new playlist
-      const nextNumber = playlists.length + 1;
-      const newPlaylistName = `${ProtectionMechanism.PLAYLIST_PREFIX} #${nextNumber}`;
-
-      const newPlaylist = await SpotifyService.createUserPlaylistWithRefresh(
-        userId,
-        newPlaylistName,
+  
+      return exclusionPlaylistsInfo.sort((a, b) => {
+        if (!a.creationDate) return 1;
+        if (!b.creationDate) return -1;
+        return new Date(a.creationDate).getTime() - new Date(b.creationDate).getTime();
+      });
+  
+    } catch (error) {
+      console.error(
+        "[ProtectionMechanism] Error fetching all exclusion playlists:",
+        error,
       );
-
-      if (typeof Alert !== "undefined") {
-        Alert.alert(
-          "New Exclusion Playlist Created",
-          `Playlist "${newPlaylistName}" was created because all your previous playlists were full.\n\nIMPORTANT: Open Spotify, find this playlist, and mark it as "Exclude from your taste profile" for best protection.\n\nTip: You can also manually delete old tracks from your existing StreamShield playlists to free up space.`,
-          [
-            { text: "OK" },
-            { 
-              text: "Show Instructions", 
-              onPress: () => {
-                Alert.alert(
-                  "How to Exclude Playlist from Taste Profile",
-                  "1. Open Spotify app\n2. Go to your Library\n3. Find the playlist 'StreamShield Exclusion List'\n4. Tap the three dots (⋯)\n5. Select 'Exclude from your taste profile'\n6. Repeat for any additional StreamShield playlists"
-                );
-              }
-            }
-          ]
-        );
-      }
-
-      return newPlaylist.id;
+      return [];
     }
-
-    // Sort available playlists by available space (descending) to maximize efficiency
-    // This ensures we fill up playlists with the most space first
-    availablePlaylists.sort((a, b) => {
-      const aAvailableSpace = 10000 - a.trackCount;
-      const bAvailableSpace = 10000 - b.trackCount;
-      return bAvailableSpace - aAvailableSpace; // Descending order
-    });
-
-    const selectedPlaylist = availablePlaylists[0];
-
-    // Return the playlist with the most available space
-    return selectedPlaylist.id;
   }
 
-  /**
-   * Gets all available playlists sorted by available space (for bulk operations)
-   * @param accessToken Spotify access token
-   * @param userId Spotify user ID
-   * @returns Promise<Array<{id: string, name: string, trackCount: number, availableSpace: number}>>
-   */
+  private _getPrimaryPlaylist(
+    playlists: Array<{ id: string; name: string; creationDate: string | null }>,
+  ): { id: string; name: string } | null {
+    if (playlists.length === 0) {
+      return null;
+    }
+    return playlists[0];
+  }
+
   public async getAvailablePlaylistsSorted(
     accessToken: string,
     userId: string,
@@ -343,340 +301,233 @@ class ProtectionMechanism {
       availableSpace: number;
     }>
   > {
-    const playlists = await this.getAllExclusionPlaylists(accessToken, userId);
-
-    return playlists
-      .filter((playlist) => playlist.trackCount < 10000)
-      .map((playlist) => ({
-        ...playlist,
-        availableSpace: 10000 - playlist.trackCount,
-      }))
-      .sort((a, b) => b.availableSpace - a.availableSpace); // Sort by available space (descending)
+    const allPlaylists = await this.getAllExclusionPlaylists(accessToken, userId);
+    const spotifyPlaylistLimit = 10000;
+    return allPlaylists.map(p => ({
+      ...p,
+      availableSpace: spotifyPlaylistLimit - p.trackCount,
+    }));
   }
 
-
-
-  /**
-   * Adds tracks to the exclusion playlist in a batch, handling full playlists.
-   * @param accessToken Spotify access token
-   * @param userId Spotify user ID
-   * @param tracks The tracks to add
-   * @returns Promise<boolean>
-   */
   public async robustlyAddTracksToExclusionPlaylist(
     accessToken: string,
     userId: string,
     tracks: Track[],
   ): Promise<boolean> {
-    if (tracks.length === 0) return true;
+    if (!tracks || tracks.length === 0) {
+      return true;
+    }
 
     try {
-      // Deduplicate tracks before processing
-      const uniqueTracks = tracks.filter((track, index, self) =>
-        index === self.findIndex((t) => (
-          t.id === track.id
-        ))
-      );
+      const trackUris = tracks.map(t => `spotify:track:${t.id}`).filter(Boolean);
+      if (trackUris.length === 0) {
+        return true;
+      }
 
-      let remainingTracks = [...uniqueTracks];
-      const availablePlaylists = await this.getAvailablePlaylistsSorted(accessToken, userId);
-
-      if (availablePlaylists.length === 0) {
-        // No playlists exist or they are all full, create a new one
-        const newPlaylistId = await this.getNextAvailablePlaylist(accessToken, userId);
-        availablePlaylists.push({ id: newPlaylistId, name: ProtectionMechanism.PLAYLIST_PREFIX, trackCount: 0, availableSpace: 10000 });
+      let targetPlaylistId = this.shieldPlaylistId;
+      if (!targetPlaylistId) {
+        console.log("No shield playlist ID cached, fetching primary...");
+        targetPlaylistId = await this.getPrimaryExclusionPlaylist(accessToken, userId);
+        this.shieldPlaylistId = targetPlaylistId;
       }
       
-      for (const playlist of availablePlaylists) {
-        if (remainingTracks.length === 0) break;
-
-        const spaceInPlaylist = playlist.availableSpace;
-        const tracksToAdd = remainingTracks.slice(0, spaceInPlaylist);
-        remainingTracks = remainingTracks.slice(spaceInPlaylist);
-
-        if (tracksToAdd.length > 0) {
-          const trackUris = tracksToAdd.map(t => `spotify:track:${t.id}`);
-          await SpotifyService.addTracksToPlaylistBatched(accessToken, playlist.id, trackUris);
-        }
+      if (!targetPlaylistId) {
+        throw new Error("Could not find or create a playlist.");
       }
 
-      // If there are still remaining tracks, it means all playlists are full
-      if (remainingTracks.length > 0) {
-         // Create a new playlist and add the remaining tracks
-         const newPlaylistId = await this.getNextAvailablePlaylist(accessToken, userId);
-         const remainingTrackUris = remainingTracks.map(t => `spotify:track:${t.id}`);
-         await SpotifyService.addTracksToPlaylistBatched(accessToken, newPlaylistId, remainingTrackUris);
-      }
-
-      uniqueTracks.forEach(track => this.tracksAddedDuringShield.add(track.id));
-      this.autoBackup(accessToken, userId);
-
+      await SpotifyService.addTracksToPlaylistBatched(accessToken, targetPlaylistId, trackUris);
       return true;
     } catch (error) {
-      console.error("Failed to robustly add tracks in batch:", error);
+      console.error("Failed to robustly add tracks:", error);
       return false;
     }
   }
 
-  /**
-   * [BATCH] Adds multiple tracks to the exclusion playlists in a batch, handling full playlists.
-   * @param accessToken Spotify access token
-   * @param userId Spotify user ID
-   * @param tracks The tracks to add
-   * @returns Promise<boolean>
-   */
   public async robustlyAddTracksInBatch(
     accessToken: string,
     userId: string,
     tracks: Track[],
   ): Promise<boolean> {
-    if (tracks.length === 0) return true;
-
-    try {
-       // Deduplicate tracks before processing
-       const uniqueTracks = tracks.filter((track, index, self) =>
-        index === self.findIndex((t) => (
-          t.id === track.id
-        ))
+    if (!tracks || tracks.length === 0) {
+      console.warn(
+        "[ProtectionMechanism] robustlyAddTracksInBatch called with no tracks.",
       );
+      return true;
+    }
+    try {
+      const trackUris = tracks.map(t => `spotify:track:${t.id}`).filter(Boolean);
+      if (trackUris.length === 0) return true;
 
-      let remainingTracks = [...uniqueTracks];
-      const availablePlaylists = await this.getAvailablePlaylistsSorted(accessToken, userId);
-
-      if (availablePlaylists.length === 0) {
-        // No playlists exist or they are all full, create a new one
-        const newPlaylistId = await this.getNextAvailablePlaylist(accessToken, userId);
-        availablePlaylists.push({ id: newPlaylistId, name: ProtectionMechanism.PLAYLIST_PREFIX, trackCount: 0, availableSpace: 10000 });
-      }
-      
-      for (const playlist of availablePlaylists) {
-        if (remainingTracks.length === 0) break;
-
-        const spaceInPlaylist = playlist.availableSpace;
-        const tracksToAdd = remainingTracks.slice(0, spaceInPlaylist);
-        remainingTracks = remainingTracks.slice(spaceInPlaylist);
-
-        if (tracksToAdd.length > 0) {
-          const trackUris = tracksToAdd.map(t => `spotify:track:${t.id}`);
-          await SpotifyService.addTracksToPlaylistBatched(accessToken, playlist.id, trackUris);
-        }
+      const playlistId = await this.getPrimaryExclusionPlaylist(accessToken, userId);
+      if (!playlistId) {
+        throw new Error("Could not determine a playlist for adding tracks.");
       }
 
-      // If there are still remaining tracks, it means all playlists are full
-      if (remainingTracks.length > 0) {
-         // Create a new playlist and add the remaining tracks
-         const newPlaylistId = await this.getNextAvailablePlaylist(accessToken, userId);
-         const remainingTrackUris = remainingTracks.map(t => `spotify:track:${t.id}`);
-         await SpotifyService.addTracksToPlaylistBatched(accessToken, newPlaylistId, remainingTrackUris);
-      }
-
-      uniqueTracks.forEach(track => this.tracksAddedDuringShield.add(track.id));
-      this.autoBackup(accessToken, userId);
-
+      await SpotifyService.addTracksToPlaylistBatched(accessToken, playlistId, trackUris);
       return true;
     } catch (error) {
-      console.error("Failed to robustly add tracks in batch:", error);
+      console.error(
+        "[ProtectionMechanism] Failed to robustly add tracks in batch:",
+        error,
+      );
       return false;
     }
   }
 
-  /**
-   * [BATCH] Removes multiple tracks from all exclusion playlists in a batch.
-   * @param accessToken Spotify access token
-   * @param userId Spotify user ID
-   * @param tracks The tracks to remove
-   * @returns Promise<boolean>
-   */
   public async robustlyRemoveTracksInBatch(
     accessToken: string,
     userId: string,
     tracks: Track[],
   ): Promise<boolean> {
-    if (tracks.length === 0) return true;
-
+    if (!tracks || tracks.length === 0) {
+      console.warn(
+        "[ProtectionMechanism] robustlyRemoveTracksInBatch called with no tracks.",
+      );
+      return true;
+    }
     try {
-      const trackUris = tracks.map(t => `spotify:track:${t.id}`);
-      const playlists = await this.getAllExclusionPlaylists(accessToken, userId);
+      const trackUris = tracks.map(t => `spotify:track:${t.id}`).filter(Boolean);
+      if (trackUris.length === 0) return true;
 
-      for (const playlist of playlists) {
-        await SpotifyService.removeTracksFromPlaylistBatched(accessToken, playlist.id, trackUris);
+      const playlistId = await this.getPrimaryExclusionPlaylist(accessToken, userId);
+      if (!playlistId) {
+        throw new Error("Could not determine a playlist for removing tracks.");
       }
-      
-      tracks.forEach(t => this.tracksAddedDuringShield.delete(t.id));
+
+      await SpotifyService.removeTracksFromPlaylistBatched(accessToken, playlistId, trackUris);
       return true;
     } catch (error) {
-      console.error("Failed to robustly remove tracks in batch:", error);
+      console.error(
+        "[ProtectionMechanism] Failed to robustly remove tracks in batch:",
+        error,
+      );
       return false;
     }
   }
 
-  /**
-   * Processes the currently playing track during a shielded session.
-   * @param accessToken Spotify access token
-   * @param userId Spotify user ID
-   * @param track The track to process
-   * @returns Promise<boolean> indicating success
-   */
   public async processCurrentTrack(
     accessToken: string,
     userId: string,
     track: Track,
   ): Promise<boolean> {
-    if (!this.isActive) {
+    if (!this.isActive) return false;
+    const trackUri = `spotify:track:${track.id}`;
+    if (this.tracksAddedDuringShield.has(trackUri)) return true;
+
+    try {
+      console.log(`[ProtectionMechanism] Processing current track: ${track.name}`);
+      const success = await this.robustlyAddTracksToExclusionPlaylist(accessToken, userId, [track]);
+      if (success) {
+        this.tracksAddedDuringShield.add(trackUri);
+      }
+      return success;
+    } catch (error) {
+      console.error(`[ProtectionMechanism] Failed to process track ${trackUri}:`, error);
       return false;
     }
-    if (this.tracksAddedDuringShield.has(track.id)) {
-      return true;
-    }
-    // Use the batch method with a single track
-    return this.robustlyAddTracksToExclusionPlaylist(accessToken, userId, [track]);
   }
 
-  /**
-   * Processes recently played tracks during a shielded session.
-   * @param accessToken Spotify access token
-   * @param userId Spotify user ID
-   * @param tracks Array of tracks to process
-   * @returns Promise<boolean> indicating success
-   */
   public async processRecentTracks(
     accessToken: string,
     userId: string,
     tracks: Track[],
   ): Promise<boolean> {
-    if (!this.isActive) {
+    if (!this.isActive || !this.activatedAt) return false;
+
+    const tracksSinceActivation = tracks.filter(
+      t => t.timestamp && t.timestamp > this.activatedAt!,
+    );
+    const newTracks = tracksSinceActivation.filter(
+      t => !this.tracksAddedDuringShield.has(`spotify:track:${t.id}`),
+    );
+
+    if (newTracks.length === 0) return true;
+
+    try {
+      const success = await this.robustlyAddTracksToExclusionPlaylist(accessToken, userId, newTracks);
+      if (success) {
+        newTracks.forEach(t => this.tracksAddedDuringShield.add(`spotify:track:${t.id}`));
+      }
+      return success;
+    } catch (error) {
+      console.error("[ProtectionMechanism] Failed to process recent tracks:", error);
       return false;
     }
-    // Filter tracks that were played during the active shield session
-    const tracksToProcess = tracks.filter(
-      (track) =>
-        track.timestamp &&
-        this.activatedAt &&
-        track.timestamp > this.activatedAt &&
-        !this.tracksAddedDuringShield.has(track.id),
-    );
-    if (tracksToProcess.length === 0) {
-      return true;
-    }
-    // Use the new batch method
-    return this.robustlyAddTracksToExclusionPlaylist(
-      accessToken,
-      userId,
-      tracksToProcess,
-    );
   }
 
-  /**
-   * Clears the shield playlist (removes all tracks).
-   * @param accessToken Spotify access token
-   * @param userId Spotify user ID
-   * @returns Promise<boolean> indicating success
-   */
   public async clearShieldPlaylist(
     accessToken: string,
     userId: string,
   ): Promise<boolean> {
     try {
-      const playlistId = await SpotifyService.ensureValidExclusionPlaylist(
-        accessToken,
-        userId,
-        this.shieldPlaylistId,
-      );
-      // Get all tracks in the playlist
-      const tracks = await SpotifyService.getAllTracksInPlaylist(
-        accessToken,
-        playlistId,
-      );
-      if (!tracks || tracks.length === 0) return true;
-
-      const trackUris = tracks
-        .map((item: any) => item.track?.uri)
-        .filter(Boolean);
-        
-      if (trackUris.length > 0) {
-        await SpotifyService.removeTracksFromPlaylistBatched(accessToken, playlistId, trackUris);
+      const playlistId = await this.getPrimaryExclusionPlaylist(accessToken, userId);
+      if (!playlistId) {
+        Alert.alert("Error", "No StreamShield playlist found to clear.");
+        return false;
       }
-      
-      this.tracksAddedDuringShield.clear();
+      await SpotifyService.clearPlaylist(accessToken, playlistId);
+      Alert.alert("Success", "The StreamShield playlist has been cleared.");
       return true;
-    } catch (error) {
-      console.error("Failed to clear shield playlist:", error);
+    } catch (error: any) {
+      Alert.alert(
+        "Error",
+        `Failed to clear playlist: ${error.message || "Unknown error"}`,
+      );
       return false;
     }
   }
 
-  /**
-   * Removes multiple tracks from all exclusion playlists in a batch.
-   * @param accessToken Spotify access token
-   * @param userId Spotify user ID
-   * @param tracks The tracks to remove
-   * @returns Promise<boolean>
-   */
   public async robustlyRemoveTracksFromExclusionPlaylist(
     accessToken: string,
     userId: string,
     tracks: Track[],
   ): Promise<boolean> {
-    if (tracks.length === 0) return true;
+    if (!tracks || tracks.length === 0) {
+      return true;
+    }
 
     try {
-      const trackUris = tracks.map(t => `spotify:track:${t.id}`);
-      const playlists = await this.getAllExclusionPlaylists(accessToken, userId);
-
-      for (const playlist of playlists) {
-        await SpotifyService.removeTracksFromPlaylistBatched(accessToken, playlist.id, trackUris);
+      const trackUris = tracks.map(t => `spotify:track:${t.id}`).filter(Boolean);
+      if (trackUris.length === 0) {
+        return true;
       }
       
-      tracks.forEach(t => this.tracksAddedDuringShield.delete(t.id));
+      const playlistId = await this.getPrimaryExclusionPlaylist(accessToken, userId);
+      if (!playlistId) {
+        throw new Error("Could not find a playlist to remove tracks from.");
+      }
+
+      await SpotifyService.removeTracksFromPlaylistBatched(accessToken, playlistId, trackUris);
       return true;
     } catch (error) {
-      console.error("Failed to robustly remove tracks in batch:", error);
+      console.error("Failed to robustly remove tracks:", error);
       return false;
     }
   }
 
-  /**
-   * Backs up the current playlist contents to AsyncStorage
-   * @param accessToken Spotify access token
-   * @param userId Spotify user ID
-   * @returns Promise<boolean> indicating success
-   */
   public async backupPlaylistContents(
     accessToken: string,
     userId: string,
   ): Promise<boolean> {
     try {
-      const playlistId = await SpotifyService.ensureValidExclusionPlaylist(
-        accessToken,
-        userId,
-        this.shieldPlaylistId,
-      );
-      const tracks = await SpotifyService.getAllTracksInPlaylist(
-        accessToken,
-        playlistId,
-      );
+      const allPlaylists = await this.getAllExclusionPlaylists(accessToken, userId);
+      if (allPlaylists.length === 0) {
+        console.log("No playlists to back up.");
+        return true;
+      }
 
-      const backup = {
-        timestamp: Date.now(),
-        playlistId: playlistId,
-        tracks: tracks
-          .map((item: any) => ({
-            id: item.track?.id,
-            name: item.track?.name,
-            artist: item.track?.artists?.[0]?.name,
-            album: item.track?.album?.name,
-            uri: item.track?.uri,
-          }))
-          .filter((track: any) => track.id && track.uri),
-      };
+      let allTracks: { uri: string; added_at: string }[] = [];
+      for (const p of allPlaylists) {
+        const playlistTracks = await SpotifyService.getAllTracksInPlaylist(accessToken, p.id);
+        allTracks.push(...playlistTracks);
+      }
+      
+      const uniqueTracks = Array.from(new Map(allTracks.map(t => [t.uri, t])).values())
+        .sort((a, b) => new Date(a.added_at).getTime() - new Date(b.added_at).getTime())
+        .map(t => t.uri);
 
-      const AsyncStorage = (
-        await import("@react-native-async-storage/async-storage")
-      ).default;
-      await AsyncStorage.setItem(
-        ProtectionMechanism.BACKUP_KEY,
-        JSON.stringify(backup),
-      );
+      await AsyncStorage.setItem(ProtectionMechanism.BACKUP_KEY, JSON.stringify(uniqueTracks));
+      console.log(`Successfully backed up ${uniqueTracks.length} tracks.`);
       return true;
     } catch (error) {
       console.error("Failed to backup playlist contents:", error);
@@ -684,48 +535,24 @@ class ProtectionMechanism {
     }
   }
 
-  /**
-   * Restores playlist contents from backup
-   * @param accessToken Spotify access token
-   * @param newPlaylistId The new playlist ID to restore to
-   * @returns Promise<boolean> indicating success
-   */
   public async restorePlaylistFromBackup(
     accessToken: string,
     newPlaylistId: string,
   ): Promise<boolean> {
     try {
-      const AsyncStorage = (
-        await import("@react-native-async-storage/async-storage")
-      ).default;
-      const backupData = await AsyncStorage.getItem(
-        ProtectionMechanism.BACKUP_KEY,
-      );
-
+      const backupData = await AsyncStorage.getItem(ProtectionMechanism.BACKUP_KEY);
       if (!backupData) {
-        return false;
+        console.log("No backup found to restore.");
+        return true;
+      }
+      const trackUris = JSON.parse(backupData);
+      if (!trackUris || trackUris.length === 0) {
+        console.log("Backup is empty, nothing to restore.");
+        return true;
       }
 
-      const backup = JSON.parse(backupData);
-      if (!backup.tracks || backup.tracks.length === 0) {
-        return false;
-      }
-
-      // Add tracks in batches of 100 (Spotify API limit)
-      const batchSize = 100;
-      for (let i = 0; i < backup.tracks.length; i += batchSize) {
-        const batch = backup.tracks.slice(i, i + batchSize);
-        const uris = batch.map((track: any) => track.uri).filter(Boolean);
-
-        if (uris.length > 0) {
-          await SpotifyService.addTracksToPlaylistBatched(
-            accessToken,
-            newPlaylistId,
-            uris,
-          );
-        }
-      }
-
+      await SpotifyService.addTracksToPlaylistBatched(accessToken, newPlaylistId, trackUris);
+      console.log(`Restored ${trackUris.length} tracks to new playlist.`);
       return true;
     } catch (error) {
       console.error("Failed to restore playlist from backup:", error);
@@ -733,288 +560,238 @@ class ProtectionMechanism {
     }
   }
 
-  /**
-   * Manually triggers a backup of the current playlist
-   * @param accessToken Spotify access token
-   * @param userId Spotify user ID
-   * @returns Promise<boolean> indicating success
-   */
   public async manualBackup(
     accessToken: string,
     userId: string,
   ): Promise<boolean> {
-    return this.backupPlaylistContents(accessToken, userId);
+    try {
+      Alert.alert(
+        "Backing up...",
+        "Saving the contents of your StreamShield playlist(s).",
+      );
+      const success = await this.backupPlaylistContents(accessToken, userId);
+      if (success) {
+        Alert.alert("Backup Complete", "Your playlist has been backed up.");
+      } else {
+        throw new Error("Backup operation returned false.");
+      }
+      return success;
+    } catch (error) {
+      Alert.alert("Backup Failed", "Could not back up the playlist.");
+      return false;
+    }
   }
 
-  /**
-   * Automatically backs up playlist contents when tracks are added
-   * @param accessToken Spotify access token
-   * @param userId Spotify user ID
-   * @returns Promise<void>
-   */
   private async autoBackup(accessToken: string, userId: string): Promise<void> {
     try {
-      if (!this.shieldPlaylistId) return;
-
-      const lastBackupCount = await AsyncStorage.getItem(
-        `${ProtectionMechanism.BACKUP_KEY}:${this.shieldPlaylistId}:count`,
-      );
-      const currentCount = (
-        await this.getAllExclusionPlaylists(accessToken, userId)
-      ).find(p => p.id === this.shieldPlaylistId)?.trackCount ?? 0;
-
-      // Backup every 10 new songs or if never backed up before
-      if (!lastBackupCount || currentCount - parseInt(lastBackupCount) >= 10) {
-        console.log(`[ProtectionMechanism] Auto-backing up playlist ${this.shieldPlaylistId}...`);
-        await this.manualBackup(accessToken, userId);
-      }
+      await this.backupPlaylistContents(accessToken, userId);
     } catch (error) {
-      console.warn("Auto-backup failed:", error);
+      console.error("Auto-backup failed:", error);
     }
   }
 
   /**
-   * Consolidates and optimizes exclusion playlists to use only the minimum number needed
-   * @param accessToken Spotify access token
-   * @param userId Spotify user ID
-   * @returns Promise<{consolidated: boolean, message: string}>
+   * Consolidates multiple "StreamShield" playlists into the correct number
+   * based on the total number of tracks. This is an idempotent operation
+   * designed to fix any state of disarray.
+   *
+   * Phase 1: Consolidate Down - All tracks are moved to the primary (oldest) playlist.
+   * Phase 2: Rebalance Up - If the primary is over capacity, tracks are redistributed.
    */
   public async consolidatePlaylists(
     accessToken: string,
     userId: string,
   ): Promise<{ consolidated: boolean; message: string }> {
-    // Prevent multiple simultaneous consolidation operations
     if (ProtectionMechanism.consolidationLock) {
+      console.log("Consolidation already in progress. Skipping.");
       return ProtectionMechanism.consolidationLock;
     }
-
-    ProtectionMechanism.consolidationLock = (async () => {
+  
+    const lock = (async (): Promise<{ consolidated: boolean; message: string }> => {
       try {
-
-        // Get all exclusion playlists
-        const playlists = await this.getAllExclusionPlaylists(
-          accessToken,
-          userId,
-        );
-        
-        if (playlists.length <= 1) {
-          ProtectionMechanism.consolidationLock = null;
-          return { consolidated: false, message: "No consolidation needed" };
+        console.log("Starting playlist consolidation...");
+  
+        let allPlaylists = await this.getAllExclusionPlaylists(accessToken, userId);
+        if (allPlaylists.length <= 1) {
+          console.log("No consolidation needed: 0 or 1 playlist found.");
+          return { consolidated: true, message: "No consolidation needed." };
         }
-
-      // Find the playlist with the most tracks (or a full one)
-      let targetPlaylist = playlists[0];
-      for (const p of playlists) {
-        if (p.trackCount === 10000) {
-          targetPlaylist = p;
-          break;
+  
+        const primaryPlaylist = this._getPrimaryPlaylist(allPlaylists);
+        if (!primaryPlaylist) {
+          return { consolidated: false, message: "Could not determine primary playlist." };
         }
-        if (p.trackCount > targetPlaylist.trackCount) {
-          targetPlaylist = p;
+  
+        console.log(`Primary playlist designated: ${primaryPlaylist.name} (${primaryPlaylist.id})`);
+  
+        const secondaryPlaylists = allPlaylists.filter(p => p.id !== primaryPlaylist.id);
+        let allTrackUris = new Set<string>();
+  
+        for (const playlist of allPlaylists) {
+          const tracks = await SpotifyService.getAllTracksInPlaylist(accessToken, playlist.id);
+          tracks.forEach(t => allTrackUris.add(t.uri));
         }
-      }
-      const playlistsToMove = playlists.filter(p => p.id !== targetPlaylist.id);
-
-
-      // Move all tracks from other playlists to the target playlist
-      for (const playlist of playlistsToMove) {
-        try {
-          // Get all tracks from this playlist
-          const tracks = await SpotifyService.getAllTracksInPlaylist(
-            accessToken,
-            playlist.id,
-          );
-          if (tracks.length > 0) {
-            // Add tracks to target playlist
-            const trackUris = tracks
-              .map((track: any) => track.track?.uri)
-              .filter(Boolean);
-            if (trackUris.length > 0) {
-              await SpotifyService.addTracksToPlaylistBatched(
-                accessToken,
-                targetPlaylist.id,
-                trackUris,
-              );
-              // Remove all tracks from source playlist
-              await SpotifyService.removeTracksFromPlaylistBatched(
-                accessToken,
-                playlist.id,
-                trackUris,
-              );
-            }
+  
+        const totalTracks = allTrackUris.size;
+        console.log(`Found a total of ${totalTracks} unique tracks across ${allPlaylists.length} playlists.`);
+        const allTrackUrisArray = Array.from(allTrackUris);
+  
+        // Clear the primary playlist to start fresh
+        await SpotifyService.clearPlaylist(accessToken, primaryPlaylist.id);
+  
+        // Delete all secondary playlists
+        console.log("Deleting secondary playlists...");
+        for (const sp of secondaryPlaylists) {
+          await SpotifyService.deletePlaylist(accessToken, sp.id);
+        }
+  
+        // Now distribute tracks across the required number of playlists
+        const PLAYLIST_CAPACITY = 10000;
+        const trackChunks = this.chunkArray(allTrackUrisArray, PLAYLIST_CAPACITY);
+        const requiredPlaylists = trackChunks.length;
+        const newPlaylistsToCreate = requiredPlaylists - 1;
+  
+        console.log(`Distributing ${totalTracks} tracks across ${requiredPlaylists} playlists.`);
+  
+        const newPlaylists = [];
+        for (let i = 0; i < newPlaylistsToCreate; i++) {
+          const newPlaylistName = `${ProtectionMechanism.PLAYLIST_PREFIX} ${i + 2}`;
+          const newPlaylist = await SpotifyService.createUserPlaylistWithRefresh(userId, newPlaylistName);
+          newPlaylists.push(newPlaylist);
+        }
+  
+        // Add first chunk to primary
+        if (trackChunks[0]?.length > 0) {
+          console.log(`Adding ${trackChunks[0].length} tracks to primary playlist.`);
+          await SpotifyService.addTracksToPlaylistBatched(accessToken, primaryPlaylist.id, trackChunks[0]);
+        }
+  
+        // Add remaining chunks to new playlists
+        for (let i = 0; i < newPlaylists.length; i++) {
+          const chunk = trackChunks[i + 1] || [];
+          if (chunk.length > 0) {
+            console.log(`Adding ${chunk.length} tracks to ${newPlaylists[i].name}.`);
+            await SpotifyService.addTracksToPlaylistBatched(accessToken, newPlaylists[i].id, chunk);
           }
-          // Delete the empty playlist
-          await SpotifyService.deletePlaylist(accessToken, playlist.id);
-        } catch (error) {
-          console.error(`[ProtectionMechanism] Error processing playlist ${playlist.name}:`, error);
-          // Continue with other playlists even if one fails
         }
+  
+        console.log("Playlist consolidation completed successfully.");
+        this.shieldPlaylistId = primaryPlaylist.id;
+        return { consolidated: true, message: "Playlists consolidated and rebalanced." };
+  
+      } catch (error) {
+        console.error("Error during playlist consolidation:", error);
+        return {
+          consolidated: false,
+          message: `Consolidation failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+        };
+      } finally {
+        ProtectionMechanism.consolidationLock = null;
       }
-
-      // Update the shield playlist ID if it was one of the deleted ones
-      if (
-        this.shieldPlaylistId &&
-        playlistsToMove.some((p) => p.id === this.shieldPlaylistId)
-      ) {
-        this.shieldPlaylistId = targetPlaylist.id;
-      }
-
-      ProtectionMechanism.consolidationLock = null;
-      return {
-        consolidated: true,
-        message: `Consolidated all tracks into single playlist: ${targetPlaylist.name}`,
-      };
-    } catch (error) {
-      console.error(
-        "[ProtectionMechanism] Error during playlist consolidation:",
-        error,
-      );
-      ProtectionMechanism.consolidationLock = null;
-      return {
-        consolidated: false,
-        message: "Failed to consolidate playlists",
-      };
-    }
     })();
-
-    return ProtectionMechanism.consolidationLock;
+    ProtectionMechanism.consolidationLock = lock;
+    return lock;
   }
 
-  /**
-   * Removes duplicate tracks from the exclusion playlist (keeps only one of each track ID).
-   * @param accessToken Spotify access token
-   * @param userId Spotify user ID
-   * @returns Promise<number> Number of duplicates removed
-   */
+  private chunkArray<T>(array: T[], size: number): T[][] {
+    const result: T[][] = [];
+    for (let i = 0; i < array.length; i += size) {
+      result.push(array.slice(i, i + size));
+    }
+    return result;
+  }
+
   public async removeDuplicateTracksFromPlaylist(
     accessToken: string,
     userId: string,
   ): Promise<number> {
-    // Prevent multiple simultaneous duplicate removal operations
     if (ProtectionMechanism.duplicateRemovalLock) {
       return ProtectionMechanism.duplicateRemovalLock;
     }
-
     ProtectionMechanism.duplicateRemovalLock = (async () => {
       try {
-        const playlistId = await SpotifyService.ensureValidExclusionPlaylist(
-          accessToken,
-          userId,
-          this.shieldPlaylistId,
-        );
-        const allTracks = await SpotifyService.getAllTracksInPlaylist(
+        const playlistId = await this.getPrimaryExclusionPlaylist(accessToken, userId);
+        if (!playlistId) {
+          console.warn(
+            "[ProtectionMechanism] Cannot remove duplicates: no playlist found.",
+          );
+          return 0;
+        }
+
+        console.log(`[ProtectionMechanism] Checking for duplicates in playlist ${playlistId}`);
+        const allItems = await SpotifyService.getAllTracksInPlaylist(
           accessToken,
           playlistId,
         );
-        
-        
-        // Flatten to array of {uri, id, positions}
-        const trackEntries = allTracks
-          .map((item: any, index: number) => ({
-            uri: item.track?.uri,
-            id: item.track?.id,
-            position: index,
-          }))
-          .filter((t: any) => t.id && t.uri);
-        
-        const seen = new Map<string, number[]>(); // trackId -> array of positions
-        const duplicates: { uri: string; id: string; positions: number[] }[] = [];
-        
-        // Find all duplicates and their positions
-        for (const entry of trackEntries) {
-          if (seen.has(entry.id)) {
-            seen.get(entry.id)!.push(entry.position);
-          } else {
-            seen.set(entry.id, [entry.position]);
+        const tracksByUri = new Map<string, Array<{ position: number }>>();
+
+        allItems.forEach((item, index) => {
+          if (item?.track?.uri) {
+            if (!tracksByUri.has(item.track.uri)) {
+              tracksByUri.set(item.track.uri, []);
+            }
+            tracksByUri.get(item.track.uri)?.push({ position: index });
           }
-        }
-        
-        // Collect duplicates (tracks that appear more than once)
-        for (const [trackId, positions] of seen.entries()) {
+        });
+
+        const duplicatesToRemove: Array<{ uri: string; positions: number[] }> = [];
+        tracksByUri.forEach((positions, uri) => {
           if (positions.length > 1) {
-            const firstEntry = trackEntries.find((e: any) => e.id === trackId);
-            if (firstEntry) {
-              duplicates.push({
-                uri: firstEntry.uri,
-                id: trackId,
-                positions: positions.slice(1), // Keep first occurrence, remove the rest
-              });
+            // Keep the first one, remove the rest
+            duplicatesToRemove.push({
+              uri,
+              positions: positions.slice(1).map(p => p.position),
+            });
           }
-        }
-        }
-        
-        
-        if (duplicates.length === 0) {
-          ProtectionMechanism.duplicateRemovalLock = null;
+        });
+
+        if (duplicatesToRemove.length === 0) {
+          console.log("[ProtectionMechanism] No duplicates found.");
           return 0;
         }
+
+        console.log(`[ProtectionMechanism] Found ${duplicatesToRemove.length} duplicate tracks to remove.`);
         
-        // Remove all duplicates
-        let removedCount = 0;
-        for (const dup of duplicates) {
-          try {
-          await SpotifyService.removeTrackFromPlaylistWithRefresh(
-            playlistId,
-            dup.uri,
-          );
-            removedCount++;
-          } catch (error) {
-            console.error(`[ProtectionMechanism] Failed to remove duplicate track ${dup.id}:`, error);
-          }
-        }
-        
-        if (removedCount > 0) {
-        }
-        
-        ProtectionMechanism.duplicateRemovalLock = null;
-        return removedCount;
+        // Correctly map to an array of URI strings before passing to the service
+        const duplicateUris = duplicatesToRemove.map(d => d.uri);
+
+        await SpotifyService.removeTracksFromPlaylistBatched(
+          accessToken,
+          playlistId,
+          duplicateUris,
+        );
+        return duplicatesToRemove.length;
       } catch (error) {
-        console.error("Failed to remove duplicate tracks:", error);
-        ProtectionMechanism.duplicateRemovalLock = null;
+        console.error(
+          "[ProtectionMechanism] Error removing duplicate tracks:",
+          error,
+        );
         return 0;
+      } finally {
+        ProtectionMechanism.duplicateRemovalLock = null;
       }
     })();
-
     return ProtectionMechanism.duplicateRemovalLock;
   }
-
-
 }
 
-// Export the singleton instance
-export const protectionMechanism = ProtectionMechanism.getInstance();
-
-// Export a hook to use the protection mechanism
-// NOTE: processCurrentTrack, processRecentTracks, and clearShieldPlaylist now require userId as an argument for robust playlist management.
 export const useProtectionMechanism = () => {
-  return {
-    initialize: protectionMechanism.initialize.bind(protectionMechanism),
-    activate: protectionMechanism.activate.bind(protectionMechanism),
-    deactivate: protectionMechanism.deactivate.bind(protectionMechanism),
-    isShieldActive:
-      protectionMechanism.isShieldActive.bind(protectionMechanism),
-    getActivationTime:
-      protectionMechanism.getActivationTime.bind(protectionMechanism),
-    getAllExclusionPlaylists:
-      protectionMechanism.getAllExclusionPlaylists.bind(protectionMechanism),
-    processCurrentTrack:
-      protectionMechanism.processCurrentTrack.bind(protectionMechanism), // (accessToken, userId, track)
-    processRecentTracks:
-      protectionMechanism.processRecentTracks.bind(protectionMechanism), // (accessToken, userId, tracks)
-    clearShieldPlaylist:
-      protectionMechanism.clearShieldPlaylist.bind(protectionMechanism), // (accessToken, userId)
-    hasShownInstructions:
-      protectionMechanism.hasShownInstructions.bind(protectionMechanism),
-    markInstructionsAsShown:
-      protectionMechanism.markInstructionsAsShown.bind(protectionMechanism),
-    manualBackup: protectionMechanism.manualBackup.bind(protectionMechanism), // (accessToken, userId)
-    backupPlaylistContents:
-      protectionMechanism.backupPlaylistContents.bind(protectionMechanism), // (accessToken, userId)
-    removeDuplicateTracksFromPlaylist:
-      protectionMechanism.removeDuplicateTracksFromPlaylist.bind(
-        protectionMechanism,
-      ), // (accessToken, userId)
-    consolidatePlaylists:
-      protectionMechanism.consolidatePlaylists.bind(protectionMechanism), // (accessToken, userId)
-  };
-};
+  return useMemo(() => {
+    const protectionMechanism = ProtectionMechanism.getInstance();
+    return {
+      initialize: protectionMechanism.initialize.bind(protectionMechanism), // (accessToken, userId)
+      activate: protectionMechanism.activate.bind(protectionMechanism), // ()
+      deactivate: protectionMechanism.deactivate.bind(protectionMechanism), // ()
+      isShieldActive: protectionMechanism.isShieldActive.bind(protectionMechanism), // ()
+      getActivationTime: protectionMechanism.getActivationTime.bind(protectionMechanism), // ()
+      processCurrentTrack: protectionMechanism.processCurrentTrack.bind(protectionMechanism), // (accessToken, userId, track)
+      processRecentTracks: protectionMechanism.processRecentTracks.bind(protectionMechanism), // (accessToken, userId, tracks)
+      clearShieldPlaylist: protectionMechanism.clearShieldPlaylist.bind(protectionMechanism), // (accessToken, userId)
+      hasShownInstructions: protectionMechanism.hasShownInstructions.bind(protectionMechanism), // ()
+      markInstructionsAsShown: protectionMechanism.markInstructionsAsShown.bind(protectionMechanism), // ()
+      consolidatePlaylists: protectionMechanism.consolidatePlaylists.bind(protectionMechanism), // (accessToken, userId)
+      removeDuplicateTracks: protectionMechanism.removeDuplicateTracksFromPlaylist.bind(protectionMechanism), // (accessToken, userId)
+      manualBackup: protectionMechanism.manualBackup.bind(protectionMechanism), // (accessToken, userId)
+    };
+  }, []);
+}; 

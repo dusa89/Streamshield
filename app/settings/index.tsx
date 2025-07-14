@@ -17,6 +17,7 @@ import FontAwesome from "@expo/vector-icons/FontAwesome";
 import { themes } from "@/constants/colors";
 import { useNavigation } from "@react-navigation/native";
 import { useShieldStore } from "@/stores/shield";
+import { HeaderBackButton } from "@react-navigation/elements";
 
 export default function SettingsScreen() {
   const router = useRouter();
@@ -33,10 +34,24 @@ export default function SettingsScreen() {
   useLayoutEffect(() => {
     navigation.setOptions({
       headerStyle: { backgroundColor: theme.background },
-      headerTitleStyle: { color: theme.text },
+      headerTitle: "Settings",
+      headerTitleAlign: "center",
+      headerTitleStyle: { color: theme.text, fontWeight: "bold", fontSize: 20 },
       headerTintColor: theme.text,
+      headerLeft: () => (
+        <HeaderBackButton
+          tintColor={theme.text}
+          onPress={() => {
+            if (navigation.canGoBack()) {
+              navigation.goBack();
+            } else {
+              router.replace("/(tabs)");
+            }
+          }}
+        />
+      ),
     });
-  }, [navigation, theme]);
+  }, [navigation, theme, router]);
 
   const handleActivityTags = () => {
     router.push("/settings/activity-tags");
@@ -48,10 +63,6 @@ export default function SettingsScreen() {
     router.push("/settings/support");
   };
   
-  const handlePlaylistManagement = () => {
-    router.push("/settings/playlist-management");
-  };
-
   console.log("DEBUG: hideAutoDisableWarning =", hideAutoDisableWarning);
 
   return (
@@ -62,9 +73,6 @@ export default function SettingsScreen() {
       {/* Shield Warnings toggle and debug label only, no reset button */}
       {/* Remove the static Shield Warnings header and margin at the top */}
       <ScrollView style={styles.scrollView}>
-        <View style={styles.header}>
-          <Text style={[styles.title, { color: theme.text }]}>Settings</Text>
-        </View>
         <Pressable
           style={[
             styles.profileCard,
@@ -255,27 +263,6 @@ export default function SettingsScreen() {
           </View>
           <Text style={[styles.settingTitle, { color: theme.text }]}>
             Notifications
-          </Text>
-          <FontAwesome
-            name="chevron-right"
-            size={18}
-            color={theme.text}
-            style={{ marginLeft: "auto" }}
-          />
-        </Pressable>
-        <Pressable
-          style={[
-            styles.sectionContainer,
-            styles.settingsNavItem,
-            { backgroundColor: theme.background, borderColor: theme.border },
-          ]}
-          onPress={handlePlaylistManagement}
-        >
-          <View style={styles.settingIconContainer}>
-            <FontAwesome name="list" size={20} color={theme.text} />
-          </View>
-          <Text style={[styles.settingTitle, { color: theme.text }]}>
-            Playlist Management
           </Text>
           <FontAwesome
             name="chevron-right"

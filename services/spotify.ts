@@ -2,7 +2,7 @@ import * as AuthSession from "expo-auth-session";
 import { Track } from "@/types/track";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuthStore } from "@/stores/auth";
-
+import type SpotifyWebApi from "spotify-web-api-node";
 // This function now just returns the result of makeRedirectUri
 export const getSpotifyRedirectUri = () => {
   try {
@@ -806,6 +806,20 @@ export const getAllTracksInPlaylist = async (
   return allTracks;
 };
 
+export const getFirstPlaylistTrack = async (accessToken: string, playlistId: string): Promise<any[]> => {
+  const url = `https://api.spotify.com/v1/playlists/${playlistId}/tracks?limit=1`;
+  const response = await spotifyFetchWithRateLimit(url, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+  if (!response.ok) {
+    throw new Error("Failed to fetch first playlist track");
+  }
+  const data = await response.json();
+  return data.items ?? [];
+};
+
 export const getPlaylistTracks = async (
   accessToken: string,
   playlistId: string,
@@ -917,65 +931,45 @@ export const getAllExclusionPlaylists = async (
   }
 };
 
-export async function ensureValidExclusionPlaylist(
-  accessToken: string,
-  userId: string,
-  currentPlaylistId: string | null,
-): Promise<string> {
-  if (currentPlaylistId) {
-    try {
-      const playlist = await findUserPlaylist(undefined, currentPlaylistId);
-      if (playlist) {
-        return currentPlaylistId;
-      }
-    } catch {
-      // Playlist not found, proceed to find/create
+export const clearPlaylist = async (accessToken: string, playlistId: string): Promise<void> => {
+  try {
+    const allTracks = await getAllTracksInPlaylist(accessToken, playlistId);
+    if (allTracks.length === 0) {
+      return; // Nothing to clear
     }
+    const trackUris = allTracks.map((item: any) => item.track?.uri).filter(Boolean);
+    await removeTracksFromPlaylistBatched(accessToken, playlistId, trackUris);
+  } catch (error) {
+    console.error(`Failed to clear playlist ${playlistId}:`, error);
+    throw error; // Re-throw to be handled by the caller
   }
-
-  const existingPlaylists = await getAllExclusionPlaylists(accessToken);
-  if (existingPlaylists.length > 0) {
-    // For simplicity, we'll just use the first one found.
-    // Consolidation logic can be handled separately.
-    return existingPlaylists[0].id;
-  }
-
-  // If no playlist exists, create one.
-  const newPlaylist = await createUserPlaylistWithRefresh(
-    userId,
-    PLAYLIST_PREFIX,
-  );
-  return newPlaylist.id;
 }
 
 export const searchSpotify = async (
   query: string,
   type: "artist" | "album" | "track",
 ) => {
-  const { tokens, updateTokens, logout } = useAuthStore.getState();
-  if (!tokens) throw new Error("Not authenticated");
-
-  return fetchWithAutoRefresh(
-    async (accessToken: string) => {
-      const response = await spotifyFetchWithRateLimit(
-        `https://api.spotify.com/v1/search?q=${encodeURIComponent(
-          query,
-        )}&type=${type}&limit=20`,
-        {
-          headers: { Authorization: `Bearer ${accessToken}` },
-        },
-      );
-      if (!response.ok) return null;
-      return response.json();
+  const { tokens } = useAuthStore.getState();
+  if (!tokens?.accessToken) {
+    throw new Error("Not authenticated for search");
+  }
+  const url = `https://api.spotify.com/v1/search?q=${encodeURIComponent(
+    query,
+  )}&type=${type}&limit=20`;
+  const response = await spotifyFetchWithRateLimit(url, {
+    headers: {
+      Authorization: `Bearer ${tokens.accessToken}`,
     },
-    tokens,
-    updateTokens,
-    logout,
-  );
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to search for ${type}`);
+  }
+  const data = await response.json();
+  return data;
 };
 
 export const getPlaybackState = async (): Promise<{ is_playing: boolean } | null> => {
-  const { tokens, updateTokens, logout } = useAuthStore.getState();
+  const { tokens } = useAuthStore.getState();
   if (!tokens) return null;
 
   try {
@@ -1121,9 +1115,11 @@ export const previousTrack = async () => {
   );
 };
 
-export const getAvailableDevices = async (): Promise<SpotifyApi.UserDevice[]> => {
+export const getAvailableDevices = async (): Promise<SpotifyWebApi.UserDevice[]> => {
   const { tokens, updateTokens, logout } = useAuthStore.getState();
-  if (!tokens) return [];
+  if (!tokens?.accessToken) {
+    throw new Error("Not authenticated");
+  }
 
   return fetchWithAutoRefresh(
     async (accessToken: string) => {
