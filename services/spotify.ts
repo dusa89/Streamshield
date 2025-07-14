@@ -2,6 +2,7 @@ import * as AuthSession from "expo-auth-session";
 import { Track } from "@/types/track";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuthStore } from "@/stores/auth";
+import { UserDevice } from "@types/spotify-web-api-node";
 // This function now just returns the result of makeRedirectUri
 export const getSpotifyRedirectUri = () => {
   try {
@@ -968,7 +969,7 @@ export const searchSpotify = async (
 };
 
 export const getPlaybackState = async (): Promise<{ is_playing: boolean } | null> => {
-  const { tokens } = useAuthStore.getState();
+  const { tokens, updateTokens, logout } = useAuthStore.getState();
   if (!tokens) return null;
 
   try {
@@ -1114,7 +1115,7 @@ export const previousTrack = async () => {
   );
 };
 
-export const getAvailableDevices = async (): Promise<SpotifyWebApi.UserDevice[]> => {
+export const getAvailableDevices = async (): Promise<UserDevice[]> => {
   const { tokens, updateTokens, logout } = useAuthStore.getState();
   if (!tokens?.accessToken) {
     throw new Error("Not authenticated");
