@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Track } from '@/types/track';
+import { Track } from "@/types/track";
 
 export interface User {
   id: string;

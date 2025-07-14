@@ -22,8 +22,8 @@ const charcoalGold = {
     error: "#D32F2F",
     primaryLight: "#E6C866",
     icon: "#2E2E2E",
-    primaryGradient: '#E6C866',
-    onPrimary: '#FFFFFF',
+    primaryGradient: "#E6C866",
+    onPrimary: "#FFFFFF",
     shield: {
       active: ["#D4AF37", "#B89B3D"],
       inactive: ["#E0E0E0", "#BDBDBD"],
@@ -52,8 +52,8 @@ const charcoalGold = {
     error: "#F44336",
     primaryLight: "#E6C866",
     icon: "#FFFFFF",
-    primaryGradient: '#E6C866',
-    onPrimary: '#FFFFFF',
+    primaryGradient: "#E6C866",
+    onPrimary: "#FFFFFF",
     shield: {
       active: ["#D4AF37", "#B89B3D"],
       inactive: ["#424242", "#212121"],
@@ -86,8 +86,8 @@ const pastelCitrus = {
     error: "#E57373",
     primaryLight: "#B8E0F5",
     icon: "#23201d",
-    primaryGradient: '#B8E0F5',
-    onPrimary: '#FFFFFF',
+    primaryGradient: "#B8E0F5",
+    onPrimary: "#FFFFFF",
     shield: {
       active: ["#A2D5F2", "#87C0D9"],
       inactive: ["#E0E0E0", "#BDBDBD"],
@@ -116,8 +116,8 @@ const pastelCitrus = {
     error: "#EF5350",
     primaryLight: "#B8E0F5",
     icon: "#FFFFFF",
-    primaryGradient: '#B8E0F5',
-    onPrimary: '#FFFFFF',
+    primaryGradient: "#B8E0F5",
+    onPrimary: "#FFFFFF",
     shield: {
       active: ["#A2D5F2", "#87C0D9"],
       inactive: ["#424242", "#212121"],
@@ -150,8 +150,8 @@ const pastelBlossom = {
     error: "#F8BBD9",
     primaryLight: "#C7F0E0",
     icon: "#3D2C3C",
-    primaryGradient: '#C7F0E0',
-    onPrimary: '#FFFFFF',
+    primaryGradient: "#C7F0E0",
+    onPrimary: "#FFFFFF",
     shield: {
       active: ["#B5EAD7", "#9AD8C3"],
       inactive: ["#E0E0E0", "#BDBDBD"],
@@ -180,8 +180,8 @@ const pastelBlossom = {
     error: "#F48FB1",
     primaryLight: "#C7F0E0",
     icon: "#FFFFFF",
-    primaryGradient: '#C7F0E0',
-    onPrimary: '#FFFFFF',
+    primaryGradient: "#C7F0E0",
+    onPrimary: "#FFFFFF",
     shield: {
       active: ["#B5EAD7", "#9AD8C3"],
       inactive: ["#424242", "#212121"],
@@ -214,8 +214,8 @@ const pastelOcean = {
     error: "#FFAB91",
     primaryLight: "#9BE4E3",
     icon: "#1A2A40",
-    primaryGradient: '#9BE4E3',
-    onPrimary: '#FFFFFF',
+    primaryGradient: "#9BE4E3",
+    onPrimary: "#FFFFFF",
     shield: {
       active: ["#7FDBDA", "#6BCACA"],
       inactive: ["#E0E0E0", "#BDBDBD"],
@@ -244,8 +244,8 @@ const pastelOcean = {
     error: "#FF8A65",
     primaryLight: "#9BE4E3",
     icon: "#FFFFFF",
-    primaryGradient: '#9BE4E3',
-    onPrimary: '#FFFFFF',
+    primaryGradient: "#9BE4E3",
+    onPrimary: "#FFFFFF",
     shield: {
       active: ["#7FDBDA", "#6BCACA"],
       inactive: ["#424242", "#212121"],
@@ -278,8 +278,8 @@ const classicSpotify = {
     error: "#E22134",
     primaryLight: "#1ED760",
     icon: "#191414",
-    primaryGradient: '#1ED760',
-    onPrimary: '#FFFFFF',
+    primaryGradient: "#1ED760",
+    onPrimary: "#FFFFFF",
     shield: {
       active: ["#1DB954", "#1AAE4B"],
       inactive: ["#E0E0E0", "#BDBDBD"],
@@ -308,8 +308,8 @@ const classicSpotify = {
     error: "#FF4444",
     primaryLight: "#1ED760",
     icon: "#FFFFFF",
-    primaryGradient: '#1ED760',
-    onPrimary: '#FFFFFF',
+    primaryGradient: "#1ED760",
+    onPrimary: "#FFFFFF",
     shield: {
       active: ["#1DB954", "#1AAE4B"],
       inactive: ["#424242", "#212121"],
@@ -342,8 +342,8 @@ const feminineRose = {
     error: "#D81B60",
     primaryLight: "#F0C4C8",
     icon: "#2D1B1B",
-    primaryGradient: '#F0C4C8',
-    onPrimary: '#FFFFFF',
+    primaryGradient: "#F0C4C8",
+    onPrimary: "#FFFFFF",
     shield: {
       active: ["#E8B4B8", "#DDAAB0"],
       inactive: ["#E0E0E0", "#BDBDBD"],
@@ -372,8 +372,8 @@ const feminineRose = {
     error: "#E91E63",
     primaryLight: "#F0C4C8",
     icon: "#FFFFFF",
-    primaryGradient: '#F0C4C8',
-    onPrimary: '#FFFFFF',
+    primaryGradient: "#F0C4C8",
+    onPrimary: "#FFFFFF",
     shield: {
       active: ["#E8B4B8", "#DDAAB0"],
       inactive: ["#424242", "#212121"],
@@ -405,8 +405,8 @@ const masculineSteel = {
     secondary: "#A0AEC0",
     error: "#E53E3E",
     primaryLight: "#718096",
-    primaryGradient: '#718096',
-    onPrimary: '#FFFFFF',
+    primaryGradient: "#718096",
+    onPrimary: "#FFFFFF",
   },
   dark: {
     text: "#F7FAFC",
@@ -427,8 +427,8 @@ const masculineSteel = {
     secondary: "#A0AEC0",
     error: "#FC8181",
     primaryLight: "#718096",
-    primaryGradient: '#718096',
-    onPrimary: '#FFFFFF',
+    primaryGradient: "#718096",
+    onPrimary: "#FFFFFF",
   },
 };
 
@@ -453,8 +453,8 @@ const cyberpunk = {
     secondary: "#6C63FF",
     error: "#FF1744",
     primaryLight: "#FF5C8A",
-    primaryGradient: '#FF5C8A',
-    onPrimary: '#FFFFFF',
+    primaryGradient: "#FF5C8A",
+    onPrimary: "#FFFFFF",
   },
   dark: {
     text: "#1DE9B6",
@@ -475,8 +475,8 @@ const cyberpunk = {
     secondary: "#6C63FF",
     error: "#FF4081",
     primaryLight: "#FF5C8A",
-    primaryGradient: '#FF5C8A',
-    onPrimary: '#FFFFFF',
+    primaryGradient: "#FF5C8A",
+    onPrimary: "#FFFFFF",
   },
 };
 
@@ -501,8 +501,8 @@ const earthTones = {
     secondary: "#8D6E63",
     error: "#BF360C",
     primaryLight: "#D7CCC8",
-    primaryGradient: '#D7CCC8',
-    onPrimary: '#FFFFFF',
+    primaryGradient: "#D7CCC8",
+    onPrimary: "#FFFFFF",
   },
   dark: {
     text: "#F5E9DA",
@@ -523,8 +523,8 @@ const earthTones = {
     secondary: "#8D6E63",
     error: "#FF5722",
     primaryLight: "#D7CCC8",
-    primaryGradient: '#D7CCC8',
-    onPrimary: '#FFFFFF',
+    primaryGradient: "#D7CCC8",
+    onPrimary: "#FFFFFF",
   },
 };
 
@@ -549,8 +549,8 @@ const monochrome = {
     secondary: "#B0B0B0",
     error: "#D32F2F",
     primaryLight: "#E0E0E0",
-    primaryGradient: '#E0E0E0',
-    onPrimary: '#FFFFFF',
+    primaryGradient: "#E0E0E0",
+    onPrimary: "#FFFFFF",
   },
   dark: {
     text: "#F5F5F5",
@@ -571,8 +571,8 @@ const monochrome = {
     secondary: "#444444",
     error: "#F44336",
     primaryLight: "#E0E0E0",
-    primaryGradient: '#E0E0E0',
-    onPrimary: '#FFFFFF',
+    primaryGradient: "#E0E0E0",
+    onPrimary: "#FFFFFF",
   },
 };
 
@@ -597,8 +597,8 @@ const nordicNight = {
     secondary: "#A3BE8C",
     error: "#BF616A",
     primaryLight: "#D8DEE9",
-    primaryGradient: '#D8DEE9',
-    onPrimary: '#FFFFFF',
+    primaryGradient: "#D8DEE9",
+    onPrimary: "#FFFFFF",
   },
   dark: {
     text: "#ECEFF4",
@@ -619,8 +619,8 @@ const nordicNight = {
     secondary: "#A3BE8C",
     error: "#BF616A",
     primaryLight: "#D8DEE9",
-    primaryGradient: '#D8DEE9',
-    onPrimary: '#FFFFFF',
+    primaryGradient: "#D8DEE9",
+    onPrimary: "#FFFFFF",
   },
 };
 
@@ -645,8 +645,8 @@ const solarizedDark = {
     secondary: "#93a1a1",
     error: "#dc322f",
     primaryLight: "#eee8d5",
-    primaryGradient: '#eee8d5',
-    onPrimary: '#FFFFFF',
+    primaryGradient: "#eee8d5",
+    onPrimary: "#FFFFFF",
   },
   dark: {
     text: "#fdf6e3",
@@ -667,8 +667,8 @@ const solarizedDark = {
     secondary: "#93a1a1",
     error: "#dc322f",
     primaryLight: "#eee8d5",
-    primaryGradient: '#eee8d5',
-    onPrimary: '#FFFFFF',
+    primaryGradient: "#eee8d5",
+    onPrimary: "#FFFFFF",
   },
 };
 

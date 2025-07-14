@@ -19,7 +19,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { themes } from "@/constants/colors";
 import { StatusBar as ExpoStatusBar } from "expo-status-bar";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { Redirect } from 'expo-router';
+import { Redirect } from "expo-router";
 import { useAuthStore } from "@/stores/auth";
 
 export { ErrorBoundary } from "expo-router";
@@ -92,7 +92,7 @@ export default function RootLayout() {
 
   const { isAuthenticated, isHydrating } = useAuthStore();
   if (!isAuthenticated || isHydrating) {
-    return <Redirect href="/(auth)/" />;
+    return <Redirect href="/(auth)" />;
   }
 
   return (

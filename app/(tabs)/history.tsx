@@ -224,7 +224,7 @@ export default function HistoryScreen() {
         const mappedTracks: (Partial<Track> | null)[] = playlistItems
           .map((item: any) => {
             const track = item.track;
-            if (!track || !track.id) return null;
+            if (!track?.id) return null;
             return {
               id: track.id,
               name: track.name,
@@ -644,8 +644,8 @@ export default function HistoryScreen() {
                           id: selectedTrack.id,
                           name: selectedTrack.title,
                           artist: selectedTrack.description,
-                          album: selectedTrack.albumName ?? 'Unknown Album',
-                          albumArt: selectedTrack.albumArt ?? '',
+                          album: selectedTrack.albumName ?? "Unknown Album",
+                          albumArt: selectedTrack.albumArt ?? "",
                         };
                         robustlyRemoveTracksFromExclusionPlaylist(tokens.accessToken, user.id, [trackToUnexclude]);
                         Toast.show("Track removed from exclusion.");
@@ -707,8 +707,8 @@ export default function HistoryScreen() {
                     id: item.id,
                     name: item.title,
                     artist: item.description,
-                    album: item.albumName ?? 'Unknown Album',
-                    albumArt: item.albumArt ?? '',
+                    album: item.albumName ?? "Unknown Album",
+                    albumArt: item.albumArt ?? "",
                     artistId: item.artistId,
                     albumId: item.albumId,
                     timestamp: item.timestamp,
@@ -827,8 +827,8 @@ export default function HistoryScreen() {
                     id: item.id,
                     name: item.title,
                     artist: item.description,
-                    album: item.albumName ?? 'Unknown Album',
-                    albumArt: item.albumArt ?? '',
+                    album: item.albumName ?? "Unknown Album",
+                    albumArt: item.albumArt ?? "",
                     artistId: item.artistId,
                     albumId: item.albumId,
                     timestamp: item.timestamp,

@@ -63,7 +63,7 @@ export default function SettingsScreen() {
   console.log("DEBUG: hideAutoDisableWarning =", hideAutoDisableWarning);
   console.log("DEBUG: hideAutoDisableWarning =", hideAutoDisableWarning);
 
-  const imageUrl = user?.profileImageUrl ?? user?.avatarUrl ?? 'default-image';
+  const imageUrl = user?.profileImageUrl ?? user?.avatarUrl ?? "default-image";
 
   return (
     <SafeAreaView
