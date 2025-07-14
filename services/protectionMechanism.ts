@@ -233,7 +233,7 @@ class ProtectionMechanism {
     return this.activatedAt;
   }
 
-    /**
+  /**
    * Finds all StreamShield exclusion playlists for a user, sorted by creation date (oldest first).
    * @param accessToken Spotify access token
    * @param userId Spotify user ID
@@ -245,14 +245,14 @@ class ProtectionMechanism {
   ): Promise<Array<{ id: string; name: string; trackCount: number; creationDate: string | null }>> {
     try {
       const userPlaylists = await SpotifyService.getUserPlaylists();
-  
+
       const exclusionPlaylistsInfo = userPlaylists
         .filter((playlist: any) =>
           playlist?.name?.startsWith(ProtectionMechanism.PLAYLIST_PREFIX),
         )
         .map((playlist: any) => ({
-          id: playlist.id,
-          name: playlist.name,
+            id: playlist.id,
+            name: playlist.name,
           trackCount: playlist.tracks?.total ?? 0,
           creationDate: null, // Will be populated below
         }));
@@ -272,7 +272,7 @@ class ProtectionMechanism {
         return new Date(a.creationDate).getTime() - new Date(b.creationDate).getTime();
       });
   
-    } catch (error) {
+        } catch (error) {
       console.error(
         "[ProtectionMechanism] Error fetching all exclusion playlists:",
         error,
@@ -606,7 +606,7 @@ class ProtectionMechanism {
       console.log("Consolidation already in progress. Skipping.");
       return ProtectionMechanism.consolidationLock;
     }
-  
+
     const lock = (async (): Promise<{ consolidated: boolean; message: string }> => {
       try {
         console.log("Starting playlist consolidation...");
@@ -679,15 +679,15 @@ class ProtectionMechanism {
         this.shieldPlaylistId = primaryPlaylist.id;
         return { consolidated: true, message: "Playlists consolidated and rebalanced." };
   
-      } catch (error) {
+    } catch (error) {
         console.error("Error during playlist consolidation:", error);
-        return {
-          consolidated: false,
+      return {
+        consolidated: false,
           message: `Consolidation failed: ${error instanceof Error ? error.message : "Unknown error"}`,
-        };
+      };
       } finally {
         ProtectionMechanism.consolidationLock = null;
-      }
+    }
     })();
     ProtectionMechanism.consolidationLock = lock;
     return lock;
@@ -749,7 +749,7 @@ class ProtectionMechanism {
           console.log("[ProtectionMechanism] No duplicates found.");
           return 0;
         }
-
+        
         console.log(`[ProtectionMechanism] Found ${duplicatesToRemove.length} duplicate tracks to remove.`);
         
         // Correctly map to an array of URI strings before passing to the service
@@ -757,11 +757,11 @@ class ProtectionMechanism {
 
         await SpotifyService.removeTracksFromPlaylistBatched(
           accessToken,
-          playlistId,
+            playlistId,
           duplicateUris,
-        );
+          );
         return duplicatesToRemove.length;
-      } catch (error) {
+          } catch (error) {
         console.error(
           "[ProtectionMechanism] Error removing duplicate tracks:",
           error,
@@ -778,20 +778,25 @@ class ProtectionMechanism {
 export const useProtectionMechanism = () => {
   return useMemo(() => {
     const protectionMechanism = ProtectionMechanism.getInstance();
-    return {
-      initialize: protectionMechanism.initialize.bind(protectionMechanism), // (accessToken, userId)
-      activate: protectionMechanism.activate.bind(protectionMechanism), // ()
-      deactivate: protectionMechanism.deactivate.bind(protectionMechanism), // ()
-      isShieldActive: protectionMechanism.isShieldActive.bind(protectionMechanism), // ()
-      getActivationTime: protectionMechanism.getActivationTime.bind(protectionMechanism), // ()
-      processCurrentTrack: protectionMechanism.processCurrentTrack.bind(protectionMechanism), // (accessToken, userId, track)
-      processRecentTracks: protectionMechanism.processRecentTracks.bind(protectionMechanism), // (accessToken, userId, tracks)
-      clearShieldPlaylist: protectionMechanism.clearShieldPlaylist.bind(protectionMechanism), // (accessToken, userId)
-      hasShownInstructions: protectionMechanism.hasShownInstructions.bind(protectionMechanism), // ()
-      markInstructionsAsShown: protectionMechanism.markInstructionsAsShown.bind(protectionMechanism), // ()
-      consolidatePlaylists: protectionMechanism.consolidatePlaylists.bind(protectionMechanism), // (accessToken, userId)
-      removeDuplicateTracks: protectionMechanism.removeDuplicateTracksFromPlaylist.bind(protectionMechanism), // (accessToken, userId)
-      manualBackup: protectionMechanism.manualBackup.bind(protectionMechanism), // (accessToken, userId)
+  return {
+    initialize: protectionMechanism.initialize.bind(protectionMechanism),
+    activate: protectionMechanism.activate.bind(protectionMechanism),
+    deactivate: protectionMechanism.deactivate.bind(protectionMechanism),
+      isShieldActive: protectionMechanism.isShieldActive.bind(protectionMechanism),
+      getActivationTime: protectionMechanism.getActivationTime.bind(protectionMechanism),
+      processCurrentTrack: protectionMechanism.processCurrentTrack.bind(protectionMechanism),
+      processRecentTracks: protectionMechanism.processRecentTracks.bind(protectionMechanism),
+      clearShieldPlaylist: protectionMechanism.clearShieldPlaylist.bind(protectionMechanism),
+      hasShownInstructions: protectionMechanism.hasShownInstructions.bind(protectionMechanism),
+      markInstructionsAsShown: protectionMechanism.markInstructionsAsShown.bind(protectionMechanism),
+      consolidatePlaylists: protectionMechanism.consolidatePlaylists.bind(protectionMechanism),
+      removeDuplicateTracks: protectionMechanism.removeDuplicateTracksFromPlaylist.bind(protectionMechanism),
+      manualBackup: protectionMechanism.manualBackup.bind(protectionMechanism),
+      robustlyAddTracksToExclusionPlaylist: protectionMechanism.robustlyAddTracksToExclusionPlaylist.bind(protectionMechanism),
+      robustlyRemoveTracksFromExclusionPlaylist: protectionMechanism.robustlyRemoveTracksFromExclusionPlaylist.bind(protectionMechanism),
+      robustlyAddTracksInBatch: protectionMechanism.robustlyAddTracksInBatch.bind(protectionMechanism),
+      robustlyRemoveTracksInBatch: protectionMechanism.robustlyRemoveTracksInBatch.bind(protectionMechanism),
+      getAllExclusionPlaylists: protectionMechanism.getAllExclusionPlaylists.bind(protectionMechanism),
     };
   }, []);
 }; 

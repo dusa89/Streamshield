@@ -8,6 +8,7 @@ export interface Track {
   albumArt: string;
   duration?: number;
   timestamp?: number;
+  isPlaying?: boolean;
 }
 
 export interface UserDevice {

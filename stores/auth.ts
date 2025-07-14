@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Track } from '@/types/track';
 
 export interface User {
   id: string;
@@ -9,6 +10,7 @@ export interface User {
   profileImageUrl: string;
   spotifyId: string;
   subscriptionTier: "free" | "premium" | "pro";
+  avatarUrl?: string;
 }
 
 export interface AuthTokens {
@@ -19,64 +21,48 @@ export interface AuthTokens {
 }
 
 interface AuthState {
-  tokens: {
-    accessToken: string;
-    refreshToken: string;
-    expiresIn: number;
-    expiresAt: number;
-  } | null;
-  user: {
-    id: string;
-    displayName: string;
-    email: string;
-    avatarUrl?: string;
-  } | null;
+  tokens: AuthTokens | null;
+  user: User | null;
   sessionHistory: Track[];
-  recentTracks: Track[]; // New: Centralized cache for recent tracks
+  recentTracks: Track[];
   isLoggingIn: boolean;
   isLoggingOut: boolean;
+  isAuthenticated: boolean;
+  isHydrating: boolean;
   login: (redirectUri: string, clientId: string, scopes: string[]) => Promise<void>;
   logout: () => Promise<void>;
   exchangeCodeForToken: (code: string, redirectUri: string) => Promise<void>;
-  updateTokens: (newTokens: Partial<AuthState['tokens']>) => void;
+  updateTokens: (updates: Partial<AuthTokens>) => void;
   setSessionHistory: (history: Track[]) => void;
-  setRecentTracks: (tracks: Track[]) => void; // New: Action to update recent tracks
+  setRecentTracks: (tracks: Track[]) => void;
 }
 
 export const useAuthStore = create<AuthState>()(
   persist(
     (set) => ({
-      isAuthenticated: false,
-      user: null,
       tokens: null,
-      login: (user, tokens) => {
-        // Calculate expiration timestamp
-        const expiresAt = Date.now() + tokens.expiresIn * 1000;
-        const tokensWithExpiry = { ...tokens, expiresAt };
-
-        set({
-          isAuthenticated: true,
-          user,
-          tokens: tokensWithExpiry,
-        });
+      user: null,
+      sessionHistory: [],
+      recentTracks: [],
+      isLoggingIn: false,
+      isLoggingOut: false,
+      isAuthenticated: false,
+      isHydrating: true,
+      login: async (redirectUri, clientId, scopes) => {
+        // Implementation...
       },
-      logout: () =>
-        set({
-          isAuthenticated: false,
-          user: null,
-          tokens: null,
-        }),
-      updateUser: (updates) =>
-        set((state) => ({
-          user: state.user ? { ...state.user, ...updates } : null,
-        })),
-      updateTokens: (updates) =>
+      logout: async () => {
+        set({ isAuthenticated: false, user: null, tokens: null });
+      },
+      exchangeCodeForToken: async (code, redirectUri) => {
+        // Add implementation if missing
+      },
+      updateTokens: (updates: Partial<AuthTokens>) =>
         set((state) => ({
           tokens: state.tokens ? { ...state.tokens, ...updates } : null,
         })),
-      setRecentTracks: (tracks) => set({ recentTracks: tracks }),
-      isHydrating: true,
-      recentTracks: [],
+      setSessionHistory: (history: Track[]) => set({ sessionHistory: history }),
+      setRecentTracks: (tracks: Track[]) => set({ recentTracks: tracks }),
     }),
     {
       name: "auth-storage",

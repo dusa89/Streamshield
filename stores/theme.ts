@@ -6,6 +6,12 @@ import { themes } from "@/constants/colors";
 export type ThemeName = "auto" | "light" | "dark";
 export type ColorTheme = keyof typeof themes;
 
+export enum ThemePreference {
+  Auto = 'auto',
+  Light = 'light',
+  Dark = 'dark',
+}
+
 interface ThemeState {
   theme: ThemeName;
   setTheme: (theme: ThemeName) => void;
