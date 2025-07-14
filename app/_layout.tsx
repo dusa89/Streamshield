@@ -79,6 +79,8 @@ export default function RootLayout() {
     themePref === "auto" ? colorScheme ?? "light" : themePref;
   const theme = themes[colorTheme][effectiveTheme];
 
+  const auth = useAuthStore();
+
   useEffect(() => {
     if (fontsLoaded || fontError) {
       SplashScreen.hideAsync();
@@ -90,7 +92,6 @@ export default function RootLayout() {
     return null;
   }
 
-  const auth = useAuthStore();
   if (!auth.isAuthenticated || auth.isHydrating) {
     return <Redirect href="/(auth)" />;
   }

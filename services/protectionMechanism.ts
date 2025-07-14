@@ -240,8 +240,8 @@ class ProtectionMechanism {
    * @returns Promise<Array<{id: string, name: string, trackCount: number, creationDate: string | null}>>
    */
   public async getAllExclusionPlaylists(
-    accessToken: string,  // Renamed from _accessToken to indicate usage
-    _userId: string,
+    accessToken: string,
+    userId: string,
   ): Promise<Array<{ id: string; name: string; trackCount: number; creationDate: string | null }>> {
     try {
       const userPlaylists = await SpotifyService.getUserPlaylists();
@@ -326,7 +326,7 @@ class ProtectionMechanism {
 
       const isValidTrackUri = (uri: string) => /^spotify:track:[a-zA-Z0-9]{22}$/.test(uri);
       trackUris = trackUris.filter(isValidTrackUri);
-      if (trackUris.length === 0) throw new Error('No valid track URIs');
+      if (trackUris.length === 0) throw new Error("No valid track URIs");
 
       let targetPlaylistId = this.shieldPlaylistId;
       if (!targetPlaylistId) {
@@ -364,7 +364,7 @@ class ProtectionMechanism {
 
       const isValidTrackUri = (uri: string) => /^spotify:track:[a-zA-Z0-9]{22}$/.test(uri);
       trackUris = trackUris.filter(isValidTrackUri);
-      if (trackUris.length === 0) throw new Error('No valid track URIs');
+      if (trackUris.length === 0) throw new Error("No valid track URIs");
 
       const playlistId = await this.getPrimaryExclusionPlaylist(accessToken, userId);
       if (!playlistId) {
@@ -399,7 +399,7 @@ class ProtectionMechanism {
 
       const isValidTrackUri = (uri: string) => /^spotify:track:[a-zA-Z0-9]{22}$/.test(uri);
       trackUris = trackUris.filter(isValidTrackUri);
-      if (trackUris.length === 0) throw new Error('No valid track URIs');
+      if (trackUris.length === 0) throw new Error("No valid track URIs");
 
       const playlistId = await this.getPrimaryExclusionPlaylist(accessToken, userId);
       if (!playlistId) {
@@ -506,7 +506,7 @@ class ProtectionMechanism {
       
       const isValidTrackUri = (uri: string) => /^spotify:track:[a-zA-Z0-9]{22}$/.test(uri);
       trackUris = trackUris.filter(isValidTrackUri);
-      if (trackUris.length === 0) throw new Error('No valid track URIs');
+      if (trackUris.length === 0) throw new Error("No valid track URIs");
 
       const playlistId = await this.getPrimaryExclusionPlaylist(accessToken, userId);
       if (!playlistId) {
@@ -645,7 +645,7 @@ class ProtectionMechanism {
   
         for (const playlist of allPlaylists) {
           const tracks = await SpotifyService.getAllTracksInPlaylist(accessToken, playlist.id);
-          tracks.forEach(t => allTrackUris.add(t.uri));
+          tracks.forEach(t => allTrackUris.add(t.track?.uri ?? ''));
         }
   
         const totalTracks = allTrackUris.size;
@@ -756,7 +756,7 @@ class ProtectionMechanism {
             // Keep the first one, remove the rest
             duplicatesToRemove.push({
               uri,
-              positions: positions.slice(1).map(p => p.position),
+              positions: positions?.slice(1).map(p => p.position) ?? [],
             });
           }
         });
