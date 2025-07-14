@@ -90,8 +90,8 @@ export default function RootLayout() {
     return null;
   }
 
-  const { isAuthenticated, isHydrating } = useAuthStore();
-  if (!isAuthenticated || isHydrating) {
+  const auth = useAuthStore();
+  if (!auth.isAuthenticated || auth.isHydrating) {
     return <Redirect href="/(auth)" />;
   }
 

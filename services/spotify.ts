@@ -2,7 +2,6 @@ import * as AuthSession from "expo-auth-session";
 import { Track } from "@/types/track";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuthStore } from "@/stores/auth";
-import SpotifyWebApi from "spotify-web-api-node";
 // This function now just returns the result of makeRedirectUri
 export const getSpotifyRedirectUri = () => {
   try {

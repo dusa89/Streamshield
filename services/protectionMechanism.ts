@@ -319,10 +319,14 @@ class ProtectionMechanism {
     }
 
     try {
-      const trackUris = tracks.map(t => `spotify:track:${t.id}`).filter(Boolean);
+      let trackUris = tracks.map(t => `spotify:track:${t.id}`).filter(Boolean);
       if (trackUris.length === 0) {
         return true;
       }
+
+      const isValidTrackUri = (uri: string) => /^spotify:track:[a-zA-Z0-9]{22}$/.test(uri);
+      trackUris = trackUris.filter(isValidTrackUri);
+      if (trackUris.length === 0) throw new Error('No valid track URIs');
 
       let targetPlaylistId = this.shieldPlaylistId;
       if (!targetPlaylistId) {
@@ -355,8 +359,12 @@ class ProtectionMechanism {
       return true;
     }
     try {
-      const trackUris = tracks.map(t => `spotify:track:${t.id}`).filter(Boolean);
+      let trackUris = tracks.map(t => `spotify:track:${t.id}`).filter(Boolean);
       if (trackUris.length === 0) return true;
+
+      const isValidTrackUri = (uri: string) => /^spotify:track:[a-zA-Z0-9]{22}$/.test(uri);
+      trackUris = trackUris.filter(isValidTrackUri);
+      if (trackUris.length === 0) throw new Error('No valid track URIs');
 
       const playlistId = await this.getPrimaryExclusionPlaylist(accessToken, userId);
       if (!playlistId) {
@@ -386,8 +394,12 @@ class ProtectionMechanism {
       return true;
     }
     try {
-      const trackUris = tracks.map(t => `spotify:track:${t.id}`).filter(Boolean);
+      let trackUris = tracks.map(t => `spotify:track:${t.id}`).filter(Boolean);
       if (trackUris.length === 0) return true;
+
+      const isValidTrackUri = (uri: string) => /^spotify:track:[a-zA-Z0-9]{22}$/.test(uri);
+      trackUris = trackUris.filter(isValidTrackUri);
+      if (trackUris.length === 0) throw new Error('No valid track URIs');
 
       const playlistId = await this.getPrimaryExclusionPlaylist(accessToken, userId);
       if (!playlistId) {
@@ -487,11 +499,15 @@ class ProtectionMechanism {
     }
 
     try {
-      const trackUris = tracks.map(t => `spotify:track:${t.id}`).filter(Boolean);
+      let trackUris = tracks.map(t => `spotify:track:${t.id}`).filter(Boolean);
       if (trackUris.length === 0) {
         return true;
       }
       
+      const isValidTrackUri = (uri: string) => /^spotify:track:[a-zA-Z0-9]{22}$/.test(uri);
+      trackUris = trackUris.filter(isValidTrackUri);
+      if (trackUris.length === 0) throw new Error('No valid track URIs');
+
       const playlistId = await this.getPrimaryExclusionPlaylist(accessToken, userId);
       if (!playlistId) {
         throw new Error("Could not find a playlist to remove tracks from.");
