@@ -21,8 +21,8 @@ class MainActivity : ReactActivity() {
     // @generated begin expo-splashscreen - expo prebuild (DO NOT MODIFY) sync-f3ff59a738c56c9a6119210cb55f0b613eb8b6af
     SplashScreenManager.registerOnActivity(this)
     // @generated end expo-splashscreen
-    DevLauncherController.initialize(this, getReactApplication())
     super.onCreate(null)
+    DevLauncherController.initialize(this, getReactApplication())
   }
 
   /**
