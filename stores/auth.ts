@@ -4,6 +4,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Track } from "@/types/track";
 import { exchangeSpotifyCode, getUserProfile } from "@/services/spotify";
 import { supabase } from "@/lib/supabaseClient";
+import * as AuthSession from "expo-auth-session";
 
 export interface User {
   id: string;
@@ -39,6 +40,7 @@ interface AuthState {
   setAuthenticated: (authenticated: boolean) => void;
   setLoggingIn: (loggingIn: boolean) => void;
   refreshTokens: () => Promise<void>;
+  login: (redirectUri: string, clientId: string, scopes: string[]) => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -120,9 +122,35 @@ export const useAuthStore = create<AuthState>()(
             expiresAt: Date.now() + (data.expires_in * 1000),
           });
         } catch (e) {
+          if (e.message?.includes('invalid_grant')) {
+            set({ tokens: null });
+            // Trigger re-login flow
+            const redirectUri = AuthSession.makeRedirectUri({ useProxy: true });
+            await get().login(redirectUri, process.env.EXPO_PUBLIC_SPOTIFY_CLIENT_ID, scopes);
+          }
           console.error("[AuthStore] Token refresh failed:", e);
           logout();
           throw e;
+        }
+      },
+      login: async (redirectUri: string, clientId: string, scopes: string[]) => {
+        try {
+          const result = await AuthSession.startAsync({
+            authUrl: `https://accounts.spotify.com/authorize?client_id=${clientId}&response_type=code&redirect_uri=${redirectUri}&scope=${scopes.join(' ')}&code_challenge_method=S256&code_challenge=${process.env.EXPO_PUBLIC_SPOTIFY_CODE_CHALLENGE}`,
+            clientId: clientId,
+            redirectUri: redirectUri,
+            codeVerifier: process.env.EXPO_PUBLIC_SPOTIFY_CODE_VERIFIER,
+          });
+
+          if (result.type === 'success') {
+            await get().exchangeCodeForToken(result.code, redirectUri, process.env.EXPO_PUBLIC_SPOTIFY_CODE_VERIFIER);
+          } else if (result.type === 'error') {
+            console.error("Spotify login error:", result.error);
+            throw new Error(`Spotify login failed: ${result.error}`);
+          }
+        } catch (error) {
+          console.error("Spotify login error:", error);
+          throw error;
         }
       },
     }),
@@ -144,8 +172,15 @@ export const useAuthStore = create<AuthState>()(
         if (state.isAuthenticated && !state.tokens?.accessToken) {
           console.log("[AuthStore] Tokens missing, attempting refresh");
           try {
-            await state.refreshTokens();
-            state.isAuthenticated = true;
+            if (!state.tokens?.refreshToken) {
+              console.log("[AuthStore] No refresh token available, clearing user data");
+              state.isAuthenticated = false;
+              state.user = null;
+              state.tokens = null;
+            } else {
+              await state.refreshTokens();
+              state.isAuthenticated = true;
+            }
           } catch (refreshError) {
             console.error("[AuthStore] Failed to refresh tokens:", refreshError);
             state.isAuthenticated = false;

@@ -9,8 +9,10 @@ export default function SpotifyCallback() {
 
   useEffect(() => {
     WebBrowser.maybeCompleteAuthSession();
-    // Assuming the auth flow completes here, navigate back
-    router.replace('/(tabs)');
+    // After successful token exchange:
+    if (tokens) {
+      router.replace('/(tabs)');
+    }
   }, [router]);
 
   return (

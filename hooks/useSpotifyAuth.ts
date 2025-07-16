@@ -19,23 +19,8 @@ const discovery = {
 const CLIENT_ID =
   Constants.expoConfig?.extra?.EXPO_PUBLIC_SPOTIFY_CLIENT_ID ?? "";
 
-const scopes = [
-  "user-read-private",
-  "user-read-email",
-  "playlist-read-private",
-  "playlist-read-collaborative",
-  "playlist-modify-public",
-  "playlist-modify-private",
-  "user-library-read",
-  "user-library-modify",
-  "user-top-read",
-  "user-read-playback-state",
-  "user-modify-playback-state",
-  "user-read-currently-playing",
-  "user-follow-read",
-  "user-follow-modify",
-  "user-read-recently-played",
-];
+// Limit scopes to essentials only for security
+const scopes = ['user-read-playback-state', 'user-modify-playback-state', 'playlist-modify-public', 'playlist-modify-private', 'user-read-recently-played'];
 
 /**
  * Custom React hook for handling Spotify authentication in the app.
@@ -133,6 +118,11 @@ export const useSpotifyAuth = () => {
           return true;
         } catch (tokenError) {
           console.error("Error exchanging code for tokens:", tokenError);
+          if (tokenError?.message?.includes('invalid_grant')) {
+            useAuthStore.setState({ tokens: null });
+            setError(new Error('Token revoked - please try logging in again'));
+            return false;
+          }
           throw new Error("Failed to exchange authorization code for tokens");
         }
       } else if (result.type === "error") {

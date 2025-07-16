@@ -23,6 +23,7 @@ import { Redirect } from "expo-router";
 import { useAuthStore } from "@/stores/auth";
 import { initializeSpotifyService } from "@/services/spotify";
 import { ActivityIndicator } from "react-native";
+import ErrorBoundary from 'react-native-error-boundary';
 
 export { ErrorBoundary } from "expo-router";
 
@@ -57,6 +58,10 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
     return <ActivityIndicator />;
   }
 
+  if (!isHydrating && isAuthenticated) {
+    return <Redirect href="/(tabs)" />;
+  }
+
   return isAuthenticated === !inAuthGroup ? children : null;
 }
 
@@ -67,13 +72,13 @@ export default function RootLayout() {
     Inter_700Bold,
   });
 
-  const { theme: themePref, colorTheme } = useThemeStore();
+  const { theme: themePref, colorTheme, isHydrating: themeHydrating } = useThemeStore();
   const colorScheme = useColorScheme();
   const effectiveTheme =
     themePref === "auto" ? colorScheme ?? "light" : themePref;
   const theme = themes[colorTheme][effectiveTheme];
 
-  const auth = useAuthStore();
+  const { isAuthenticated, isHydrating: authHydrating } = useAuthStore();
 
   // Initialize the auth store for Spotify service to avoid circular dependencies
   useEffect(() => {
@@ -87,35 +92,37 @@ export default function RootLayout() {
     }
   }, [fontsLoaded, fontError]);
 
-  if (!fontsLoaded && !fontError) {
-    return null;
+  if (!fontsLoaded && !fontError || authHydrating || themeHydrating) {
+    return <ActivityIndicator size="large" style={{ flex: 1, justifyContent: 'center' }} />;
   }
 
-  if (!auth.isAuthenticated || auth.isHydrating) {
+  if (!isAuthenticated) {
     return <Redirect href="/(auth)" />;
   }
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-        <trpc.Provider client={trpcClient} queryClient={queryClient}>
-          <QueryClientProvider client={queryClient}>
-          <AuthGuard>
-            <SafeAreaView
-              style={{ flex: 1, backgroundColor: theme.background }}
-            >
-              <ExpoStatusBar
-                style={effectiveTheme === "dark" ? "light" : "dark"}
-              />
-              <Stack screenOptions={{ headerShown: false }}>
-                <Stack.Screen name="(tabs)" />
-                <Stack.Screen name="(auth)" />
-                <Stack.Screen name="settings" />
-                <Stack.Screen name="spotify-callback" options={{ headerShown: false }} />
-              </Stack>
-            </SafeAreaView>
-          </AuthGuard>
-          </QueryClientProvider>
-        </trpc.Provider>
+      <trpc.Provider client={trpcClient} queryClient={queryClient}>
+        <QueryClientProvider client={queryClient}>
+          <ErrorBoundary>
+            <AuthGuard>
+              <SafeAreaView
+                style={{ flex: 1, backgroundColor: theme.background }}
+              >
+                <ExpoStatusBar
+                  style={effectiveTheme === "dark" ? "light" : "dark"}
+                />
+                <Stack screenOptions={{ headerShown: false }}>
+                  <Stack.Screen name="(tabs)" />
+                  <Stack.Screen name="(auth)" />
+                  <Stack.Screen name="settings" />
+                  <Stack.Screen name="spotify-callback" options={{ headerShown: false }} />
+                </Stack>
+              </SafeAreaView>
+            </AuthGuard>
+          </ErrorBoundary>
+        </QueryClientProvider>
+      </trpc.Provider>
     </GestureHandlerRootView>
   );
 }

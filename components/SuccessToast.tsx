@@ -76,6 +76,14 @@ export const SuccessToast: React.FC<SuccessToastProps> = ({
   );
 };
 
+// Add error variant
+export const ErrorToast = ({ message }) => (
+  <View style={{ backgroundColor: 'red' }}>
+    <Text>{message}</Text>
+  </View>
+);
+// Usage example: ErrorToast({ message: 'Token expired - reconnecting...' });
+
 const styles = StyleSheet.create({
   container: {
     position: "absolute",

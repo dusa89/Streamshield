@@ -73,14 +73,25 @@ Deno.serve(async (req: Request) => {
     });
 
     if (!response.ok) {
-      const errorData = await response.json();
-      console.error("Spotify token refresh failed:", errorData);
-      return new Response(JSON.stringify({ 
-        error: "Failed to refresh token with Spotify",
-        spotifyError: errorData
-      }), {
+      // Retry once
+      const retryResponse = await fetch("https://accounts.spotify.com/api/token", {
+        method: "POST",
+        headers: {
+          Authorization: `Basic ${credentials}`,
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: formData,
+      });
+      if (!retryResponse.ok) {
+        const errorData = await retryResponse.json();
+        console.error("Spotify refresh failed after retry:", errorData);
+        return new Response(JSON.stringify({ error: "Failed after retry" }), { status: 400 });
+      }
+      const data = await retryResponse.json();
+      console.log('Refresh successful, new token data:', { access_token: !!data.access_token });
+      return new Response(JSON.stringify(data), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 400,
+        status: 200,
       });
     }
 
