@@ -48,7 +48,8 @@ export default {
       eas: {
         projectId: "190afce7-7285-4df1-8af8-ad4600242e30",
       },
-      EXPO_PUBLIC_SPOTIFY_CLIENT_ID: process.env.EXPO_PUBLIC_SPOTIFY_CLIENT_ID,
+      EXPO_PUBLIC_SPOTIFY_CLIENT_ID: "220ee0c4acb841ed9cae6f2823a5ee9b",
+      SPOTIFY_CLIENT_SECRET: "fa38d950dd1b4be7910904709c4ca33d",
     },
   },
 };

@@ -4,7 +4,6 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Track } from "@/types/track";
 import { exchangeCodeForToken as exchangeSpotifyCode, getUserProfile } from "@/services/spotify";
 import { supabase } from "@/lib/supabaseClient";
-import * as AuthSession from "expo-auth-session";
 
 export interface User {
   id: string;
@@ -32,12 +31,13 @@ interface AuthState {
   isLoggingOut: boolean;
   isAuthenticated: boolean;
   isHydrating: boolean;
-  login: (redirectUri: string, clientId: string, scopes: string[]) => Promise<void>;
-  logout: () => Promise<void>;
-  exchangeCodeForToken: (code: string, redirectUri: string) => Promise<void>;
+  exchangeCodeForToken: (code: string, redirectUri: string, codeVerifier: string) => Promise<void>;
   updateTokens: (updates: Partial<AuthTokens>) => void;
   setSessionHistory: (history: Track[]) => void;
   setRecentTracks: (tracks: Track[]) => void;
+  setUser: (user: User) => void;
+  setAuthenticated: (authenticated: boolean) => void;
+  setLoggingIn: (loggingIn: boolean) => void;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -51,33 +51,6 @@ export const useAuthStore = create<AuthState>()(
       isLoggingOut: false,
       isAuthenticated: false,
       isHydrating: true,
-      login: async (redirectUri: string, clientId: string, scopes: string[]) => {
-        set({ isLoggingIn: true });
-        try {
-          // Implement Spotify OAuth login flow here
-          // For example, using expo-auth-session
-          const discovery = { authorizationEndpoint: "https://accounts.spotify.com/authorize" };
-          const [_request, response, promptAsync] = AuthSession.useAuthRequest(
-            {
-              clientId,
-              scopes,
-              redirectUri,
-            },
-            discovery
-          );
-
-          await promptAsync();
-
-          if (response?.type === "success" && response.params.code) {
-            await get().exchangeCodeForToken(response.params.code, redirectUri);
-          }
-        } catch (error) {
-          console.error("Login error:", error);
-          throw error;
-        } finally {
-          set({ isLoggingIn: false });
-        }
-      },
       logout: async () => {
         set({ isLoggingOut: true });
         try {
@@ -89,9 +62,9 @@ export const useAuthStore = create<AuthState>()(
           set({ isLoggingOut: false });
         }
       },
-      exchangeCodeForToken: async (code: string, redirectUri: string) => {
+      exchangeCodeForToken: async (code: string, redirectUri: string, codeVerifier: string) => {
         try {
-          const tokenData = await exchangeSpotifyCode(code, redirectUri, ""); // Add codeVerifier if needed
+          const tokenData = await exchangeSpotifyCode(code, redirectUri, codeVerifier);
           set({ tokens: {
             accessToken: tokenData.access_token,
             refreshToken: tokenData.refresh_token,
@@ -123,6 +96,9 @@ export const useAuthStore = create<AuthState>()(
         }),
       setSessionHistory: (history: Track[]) => set({ sessionHistory: history }),
       setRecentTracks: (tracks: Track[]) => set({ recentTracks: tracks }),
+      setUser: (user: User) => set({ user }),
+      setAuthenticated: (authenticated: boolean) => set({ isAuthenticated: authenticated }),
+      setLoggingIn: (loggingIn: boolean) => set({ isLoggingIn: loggingIn }),
     }),
     {
       name: "auth-storage",

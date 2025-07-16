@@ -21,6 +21,7 @@ import { StatusBar as ExpoStatusBar } from "expo-status-bar";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { Redirect } from "expo-router";
 import { useAuthStore } from "@/stores/auth";
+import { initializeSpotifyService } from "@/services/spotify";
 
 export { ErrorBoundary } from "expo-router";
 
@@ -80,6 +81,11 @@ export default function RootLayout() {
   const theme = themes[colorTheme][effectiveTheme];
 
   const auth = useAuthStore();
+
+  // Initialize the auth store for Spotify service to avoid circular dependencies
+  useEffect(() => {
+    initializeSpotifyService(useAuthStore);
+  }, []);
 
   useEffect(() => {
     if (fontsLoaded || fontError) {

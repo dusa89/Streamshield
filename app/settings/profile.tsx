@@ -16,6 +16,8 @@ import { themes } from "@/constants/colors";
 import { useNavigation } from "@react-navigation/native";
 import FontAwesome from "react-native-vector-icons/FontAwesome";
 import * as ImagePicker from "expo-image-picker";
+import * as AuthSession from "expo-auth-session";
+import { useSpotifyAuth } from '@/hooks/useSpotifyAuth';
 
 export default function ProfileScreen() {
   const { user, updateUser } = useAuthStore();
@@ -27,6 +29,7 @@ export default function ProfileScreen() {
   const effectiveTheme = themePref === "auto" ? (colorScheme ?? "light") : themePref;
   const theme = themes[colorTheme][effectiveTheme];
   const navigation = useNavigation();
+  const { login } = useSpotifyAuth();
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -137,6 +140,12 @@ export default function ProfileScreen() {
               </Text>
             </View>
           </View>
+        <Pressable style={[styles.reconnectButton, { backgroundColor: theme.tint }]} onPress={async () => {
+  useAuthStore.setState({ tokens: null });
+  await login();
+}}>
+  <Text style={[styles.reconnectButtonText, { color: theme.background }]}>Reconnect Spotify</Text>
+</Pressable>
         <Pressable style={[styles.updateButton, { backgroundColor: theme.tint }]} onPress={handleUpdateProfile}>
           <Text style={[styles.updateButtonText, { color: theme.background }]}>
             {isEditing ? "Save Changes" : "Edit Profile"}
@@ -226,5 +235,16 @@ const styles = StyleSheet.create({
   updateButtonText: {
     fontSize: 16,
     fontWeight: "600",
+  },
+  reconnectButton: {
+    paddingVertical: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 16,
+    width: '100%',
+  },
+  reconnectButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
