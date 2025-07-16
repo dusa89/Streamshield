@@ -789,6 +789,18 @@ class ProtectionMechanism {
     })();
     return ProtectionMechanism.duplicateRemovalLock;
   }
+
+  public reset(): void {
+    this.isActive = false;
+    this.activatedAt = null;
+    this.shieldPlaylistId = null;
+    this.tracksAddedDuringShield.clear();
+    this.hasShownExclusionInstructions = false;
+    ProtectionMechanism.playlistCheckLock = null;
+    this.playlistCreationPromise = null;
+    ProtectionMechanism.duplicateRemovalLock = null;
+    ProtectionMechanism.consolidationLock = null;
+  }
 }
 
 export const useProtectionMechanism = () => {

@@ -22,6 +22,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { Redirect } from "expo-router";
 import { useAuthStore } from "@/stores/auth";
 import { initializeSpotifyService } from "@/services/spotify";
+import { ActivityIndicator } from "react-native";
 
 export { ErrorBoundary } from "expo-router";
 
@@ -38,33 +39,25 @@ SplashScreen.preventAutoHideAsync();
 
 function AuthGuard({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isHydrating } = useAuthStore();
-  const segments = useSegments();
   const router = useRouter();
+  const [segments] = useSegments();
+  const inAuthGroup = segments[0] === '(auth)';
 
   useEffect(() => {
-    if (isHydrating) {
-      return;
-    }
-
-    const inAuthGroup = segments[0] === "(auth)";
+    if (isHydrating) return;
 
     if (isAuthenticated && inAuthGroup) {
-      // If the user is authenticated and in the auth group,
-      // redirect them to the main app.
-      router.replace("/(tabs)");
+      router.replace('/(tabs)');
     } else if (!isAuthenticated && !inAuthGroup) {
-      // If the user is not authenticated and not in the auth group,
-      // redirect them to the auth group.
-      router.replace("/(auth)");
+      router.replace('/(auth)');
     }
   }, [isAuthenticated, isHydrating, segments, router]);
 
-  // You can return a loading state here while checking for authentication.
-  if (isHydrating) {
-    return null; // Or a loading spinner
+  if (isHydrating || !segments) {
+    return <ActivityIndicator />;
   }
 
-  return <>{children}</>;
+  return isAuthenticated === !inAuthGroup ? children : null;
 }
 
 export default function RootLayout() {

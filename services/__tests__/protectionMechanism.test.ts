@@ -2,8 +2,7 @@ import { protectionMechanism } from "../protectionMechanism";
 
 describe("ProtectionMechanism", () => {
   beforeEach(() => {
-    // Ensure shield is deactivated before each test
-    protectionMechanism.deactivate();
+    protectionMechanism.reset();
   });
 
   it("should activate the shield", () => {

@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Track } from "@/types/track";
-import { exchangeCodeForToken as exchangeSpotifyCode, getUserProfile } from "@/services/spotify";
+import { exchangeSpotifyCode, getUserProfile } from "@/services/spotify";
 import { supabase } from "@/lib/supabaseClient";
 
 export interface User {
@@ -38,6 +38,7 @@ interface AuthState {
   setUser: (user: User) => void;
   setAuthenticated: (authenticated: boolean) => void;
   setLoggingIn: (loggingIn: boolean) => void;
+  refreshTokens: () => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -99,12 +100,63 @@ export const useAuthStore = create<AuthState>()(
       setUser: (user: User) => set({ user }),
       setAuthenticated: (authenticated: boolean) => set({ isAuthenticated: authenticated }),
       setLoggingIn: (loggingIn: boolean) => set({ isLoggingIn: loggingIn }),
+      refreshTokens: async () => {
+        const { tokens, updateTokens, logout } = get();
+        if (!tokens?.refreshToken) {
+          logout();
+          throw new Error("No refresh token available");
+        }
+        try {
+          const { data, error } = await supabase.functions.invoke(
+            "spotify-token-refresh",
+            { body: { refreshToken: tokens.refreshToken } }
+          );
+          if (error) throw error;
+          if (!data?.access_token) throw new Error("No access token received");
+          updateTokens({
+            accessToken: data.access_token,
+            refreshToken: data.refresh_token ?? tokens.refreshToken,
+            expiresIn: data.expires_in,
+            expiresAt: Date.now() + (data.expires_in * 1000),
+          });
+        } catch (e) {
+          console.error("[AuthStore] Token refresh failed:", e);
+          logout();
+          throw e;
+        }
+      },
     }),
     {
       name: "auth-storage",
       storage: createJSONStorage(() => AsyncStorage),
-      onRehydrateStorage: () => (state) => {
-        if (state) state.isHydrating = false;
+      onRehydrateStorage: () => async (state, error) => {
+        if (error) {
+          console.error("[AuthStore] Hydration error:", error);
+          return;
+        }
+        if (!state) return;
+
+        state.isHydrating = true;
+        state.isAuthenticated = !!state.user;
+
+        console.log("[AuthStore] Hydrated isAuthenticated:", state.isAuthenticated);
+
+        if (state.isAuthenticated && !state.tokens?.accessToken) {
+          console.log("[AuthStore] Tokens missing, attempting refresh");
+          try {
+            await state.refreshTokens();
+            state.isAuthenticated = true;
+          } catch (refreshError) {
+            console.error("[AuthStore] Failed to refresh tokens:", refreshError);
+            state.isAuthenticated = false;
+            state.user = null;
+            state.tokens = null;
+          }
+        } else {
+          state.isAuthenticated = !!state.user && !!state.tokens?.accessToken;
+        }
+
+        state.isHydrating = false;
       },
     },
   ),

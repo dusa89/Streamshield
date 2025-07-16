@@ -151,7 +151,7 @@ export default function ShieldScreen() {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
   const handleToggleShield = async () => {
-    if (!tokens?.accessToken || !user || !protection || !isInitialized) {
+    if (!tokens?.accessToken || !user) {
       router.push('/(auth)/login');
       return;
     }
@@ -577,34 +577,43 @@ export default function ShieldScreen() {
             </View>
           )}
           <View style={styles.shieldContainer}>
-            <Pressable onPress={handleToggleShield} disabled={isProcessing || !isInitialized}>
-                <LinearGradient
-                    colors={isShieldActive ? [theme.primary, theme.primaryGradient ?? theme.primary] : [theme.card, theme.card]}
-                    style={styles.shieldCard}
-                >
-                    <Pressable style={styles.shieldSettingsButton} onPress={() => router.push("/settings/shield")}>
-                        <MaterialCommunityIcons 
-                            name="cog"
-                            size={24}
-                            color={isShieldActive ? theme.onPrimary ?? theme.text : theme.text}
-                        />
-                    </Pressable>
+            <TouchableOpacity
+              onPress={() => {
+                console.log('Shield button pressed');
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                handleToggleShield();
+              }}
+              disabled={isProcessing || !isInitialized}
+              activeOpacity={0.7}
+              style={styles.shieldContainer}
+            >
+              <LinearGradient
+                colors={isShieldActive ? [theme.primary, theme.primaryGradient ?? theme.primary] : [theme.card, theme.card]}
+                style={styles.shieldCard}
+              >
+                <Pressable style={styles.shieldSettingsButton} onPress={() => router.push("/settings/shield")}>
                     <MaterialCommunityIcons 
-                        name={isShieldActive ? "shield-check" : "shield-off-outline"}
-                        size={64}
+                        name="cog"
+                        size={24}
                         color={isShieldActive ? theme.onPrimary ?? theme.text : theme.text}
-                        style={styles.shieldIcon}
                     />
-                    <Text style={[styles.shieldText, { color: isShieldActive ? theme.onPrimary ?? theme.text : theme.text }]}>
-                        {isShieldActive ? "Shield Active" : "Shield Inactive"}
-                    </Text>
-                    <Text style={[styles.shieldDescription, { color: isShieldActive ? theme.onPrimary ?? theme.text : theme.subtext }]}>
-                        {isShieldActive
-                            ? "Your listening is protected from affecting your Spotify recommendations"
-                            : "Tap to protect your listening history"}
-                    </Text>
-                </LinearGradient>
-            </Pressable>
+                </Pressable>
+                <MaterialCommunityIcons 
+                    name={isShieldActive ? "shield-check" : "shield-off-outline"}
+                    size={64}
+                    color={isShieldActive ? theme.onPrimary ?? theme.text : theme.text}
+                    style={styles.shieldIcon}
+                />
+                <Text style={[styles.shieldText, { color: isShieldActive ? theme.onPrimary ?? theme.text : theme.text }]}>
+                    {isShieldActive ? "Shield Active" : "Shield Inactive"}
+                </Text>
+                <Text style={[styles.shieldDescription, { color: isShieldActive ? theme.onPrimary ?? theme.text : theme.subtext }]}>
+                    {isShieldActive
+                        ? "Your listening is protected from affecting your Spotify recommendations"
+                        : "Tap to protect your listening history"}
+                </Text>
+              </LinearGradient>
+            </TouchableOpacity>
           </View>
 
           {/* Now Playing section */}
