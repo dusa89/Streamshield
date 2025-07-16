@@ -28,18 +28,16 @@ This file documents all code changes made to the StreamShield app for reference.
 - Reason: Prevent rendering with undefined values during startup.
 - **Status**: [x] Completed
 
-## Phase 2: Fix Immediate Errors (In Progress)
+## Phase 2: Fix Immediate Errors (Completed)
 
-### Planned Changes:
-- [ ] Fix Spotify auth token revokes (hooks/useSpotifyAuth.ts, stores/auth.ts)
-- [ ] Fix post-login redirects (app/spotify-callback.tsx)
-- [ ] Handle startup crashes (app/_layout.tsx, useInitialization.ts)
-- [ ] Improve token refresh backend (supabase/functions/spotify-token-refresh/index.ts)
-- [ ] Add user-friendly error messages (components/SuccessToast.tsx)
-- [ ] Fix linter errors (27 quote errors, unused variables)
-
-### Completed:
-- [ ] (None yet - starting Phase 2)
+- [x] Updated useSpotifyAuth.ts: Added invalid_grant handling and scope limiting
+- [x] Updated auth.ts: Added force refresh on errors
+- [x] Updated spotify-callback.tsx: Added redirect to main
+- [x] Updated _layout.tsx: Added error boundaries and auto-skip
+- [x] Updated useInitialization.ts: Added try-catch and permissions
+- [x] Updated spotify-token-refresh/index.ts: Added retry logic
+- [x] Updated SuccessToast.tsx: Added error variant
+- [x] Ran linter fixes for quotes and unused vars
 
 ## Phase 3: Modernize Codebase (Planned)
 

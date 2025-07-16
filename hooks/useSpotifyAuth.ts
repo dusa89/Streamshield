@@ -1,10 +1,14 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Constants from "expo-constants";
 import * as AuthSession from "expo-auth-session";
 import * as WebBrowser from "expo-web-browser";
 import { useAuthStore } from "@/stores/auth";
 import { exchangeCodeForToken, getUserProfile } from "@/services/spotify";
 import { protectionMechanism } from "@/services/protectionMechanism";
+// Import zod
+import { z } from 'zod';
+// Token schema
+const tokenSchema = z.object({ access_token: z.string(), refresh_token: z.string().optional(), expires_in: z.number() });
 
 // Register for the redirect
 WebBrowser.maybeCompleteAuthSession();
@@ -96,7 +100,8 @@ export const useSpotifyAuth = () => {
           }
           
           // Use the auth store's exchangeCodeForToken method
-          await exchangeToken(code, redirectUri, request.codeVerifier);
+          const tokenData = await exchangeToken(code, redirectUri, request.codeVerifier);
+          const validatedTokens = tokenSchema.parse(tokenData);
 
           // The user should now be set in the store after exchangeCodeForToken
           setAuthenticated(true);

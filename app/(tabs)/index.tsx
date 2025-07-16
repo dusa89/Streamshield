@@ -577,7 +577,7 @@ export default function ShieldScreen() {
             </View>
           )}
           <View style={styles.shieldContainer}>
-            <TouchableOpacity
+            <Pressable
               onPress={() => {
                 console.log('Shield button pressed');
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -613,7 +613,7 @@ export default function ShieldScreen() {
                         : "Tap to protect your listening history"}
                 </Text>
               </LinearGradient>
-            </TouchableOpacity>
+            </Pressable>
           </View>
 
           {/* Now Playing section */}
@@ -1498,7 +1498,11 @@ export default function ShieldScreen() {
                 keyExtractor={(item) =>
                   item.track?.id ?? item.track?.name ?? Math.random().toString()
                 }
-                style={{ maxHeight: 400 }}
+                getItemLayout={(data, index) => ({
+                  length: 60, // Approximate height of each item
+                  offset: 60 * index,
+                  index,
+                })}
                 renderItem={({ item }) => {
                   const track = item.track;
                   const artist = track?.artists

@@ -461,42 +461,45 @@ export const getCurrentlyPlaying = async (): Promise<Track | null> => {
   );
 };
 
-export const getRecentlyPlayed = async (): Promise<Track[]> => {
-  const { tokens, updateTokens, logout } = getAuthState();
-  if (!tokens) return [];
-
-  return fetchWithAutoRefresh(
-    async (accessToken: string) => {
-      const response = await spotifyFetchWithRateLimit(
-        "https://api.spotify.com/v1/me/player/recently-played?limit=50",
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-        },
-      );
-      if (!response.ok) return [];
-      const data = await response.json();
-      return (
-        data.items?.map(({ track, played_at }: any) => ({
-          id: track.id,
-          name: track.name,
-          artist: track.artists.map((_artist: any) => _artist.name).join(", "),
-          artistId: track.artists[0]?.id,
-          album: track.album.name,
-          albumId: track.album.id,
-          albumArt: track.album.images[0]?.url,
-          duration: track.duration_ms,
-          timestamp: new Date(played_at).getTime(),
-          uri: track.uri,
-        })) ?? []
-      );
-    },
-    tokens,
-    updateTokens,
-    logout,
-  );
+// Add debounce function
+const debounce = (func, delay) => {
+  let timeout;
+  return (...args) => {
+    clearTimeout(timeout);
+    timeout = setTimeout(() => func(...args), delay);
+  };
 };
+// Wrap API calls e.g., getRecentlyPlayed:
+const getRecentlyPlayed = debounce(async (accessToken) => {
+  try {
+    const response = await spotifyFetchWithRateLimit(
+      "https://api.spotify.com/v1/me/player/recently-played?limit=50",
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      },
+    );
+    if (!response.ok) return [];
+    const data = await response.json();
+    return (
+      data.items?.map(({ track, played_at }: any) => ({
+        id: track.id,
+        name: track.name,
+        artist: track.artists.map((_artist: any) => _artist.name).join(", "),
+        artistId: track.artists[0]?.id,
+        album: track.album.name,
+        albumId: track.album.id,
+        albumArt: track.album.images[0]?.url,
+        duration: track.duration_ms,
+        timestamp: new Date(played_at).getTime(),
+        uri: track.uri,
+      })) ?? []
+    );
+  } catch (e) {
+    console.error('API error:', e);
+  }
+}, 300);
 
 export const findUserPlaylist = async (
   playlistName?: string,

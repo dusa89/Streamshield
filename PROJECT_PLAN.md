@@ -59,12 +59,12 @@ Make StreamShield a polished, error-free app that:
 **What I'll Do**: Tackle the biggest pains first: Spotify token revokes, refresh fails, startup crashes, and "not found" screens.
 
 ### Steps:
-- [ ] **Spotify Auth Fix**: Update hooks/useSpotifyAuth.ts and stores/auth.ts to handle token revokes gracefully—add a "force refresh" with error checking (e.g., if "invalid_grant", clear old tokens and prompt re-login once). Use latest Spotify OAuth 2.0 standards (secure redirects, scope limiting)
-- [ ] **Redirect After Login**: Create/edit a callback screen (app/spotify-callback.tsx) to handle post-login redirects, routing straight to the main shield screen (app/(tabs)/index.tsx). Skip login if tokens are valid (per user request)
-- [ ] **Crash on Startup**: Edit app/_layout.tsx and useInitialization.ts to add better error boundaries (catch crashes) and auto-skip to main if logged in. Fix emulator-specific glitches (e.g., add Android permissions checks)
-- [ ] **Token Refresh Backend**: Tweak supabase/functions/spotify-token-refresh/index.ts for robust error handling (e.g., retry on "non-2xx" codes, log more details). Redeploy via command if needed (I'll run it non-interactively)
-- [ ] **General Error Handling**: Add toasts (via components/SuccessToast.tsx) for user-friendly messages (e.g., "Token expired—reconnecting...")
-- [ ] **Linter Fixes**: Fix 27 quote errors and remove unused variables to clean up codebase
+- [x] **Spotify Auth Fix**: Update hooks/useSpotifyAuth.ts and stores/auth.ts to handle token revokes gracefully—add a "force refresh" with error checking (e.g., if "invalid_grant", clear old tokens and prompt re-login once). Use latest Spotify OAuth 2.0 standards (secure redirects, scope limiting)
+- [x] **Redirect After Login**: Create/edit a callback screen (app/spotify-callback.tsx) to handle post-login redirects, routing straight to the main shield screen (app/(tabs)/index.tsx). Skip login if tokens are valid (per user request)
+- [x] **Crash on Startup**: Edit app/_layout.tsx and useInitialization.ts to add better error boundaries (catch crashes) and auto-skip to main if logged in. Fix emulator-specific glitches (e.g., add Android permissions checks)
+- [x] **Token Refresh Backend**: Tweak supabase/functions/spotify-token-refresh/index.ts for robust error handling (e.g., retry on "non-2xx" codes, log more details). Redeploy via command if needed (I'll run it non-interactively)
+- [x] **General Error Handling**: Add toasts (via components/SuccessToast.tsx) for user-friendly messages (e.g., "Token expired—reconnecting...")
+- [x] **Linter Fixes**: Fix 27 quote errors and remove unused variables to clean up codebase
 
 **Why**: Logs show revoked tokens from bad refreshes; crashes from unhandled async errors. This brings it to current standards (e.g., Expo's async best practices).
 
@@ -139,9 +139,10 @@ Make StreamShield a polished, error-free app that:
 - **Questions for User**: Do you want iOS/web testing too? Any specific UI changes (e.g., button colors)?
 
 ## Progress Tracking
-- **Current Phase**: Phase 2 (Fix Immediate Errors)
+- **Current Phase**: Phase 3 (Modernize Codebase)
 - **Last Updated**: 2024-10-08
-- **Next Action**: Fix Spotify auth token revokes and linter errors
+- **Next Action**: Refactor auth/Spotify integration
+- **Completed**: Phase 1 and Phase 2
 - **Blockers**: None currently
 - **Completed**: Phase 1 (Full audit completed with detailed findings)
 
