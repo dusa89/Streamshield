@@ -152,7 +152,7 @@ export default function ShieldScreen() {
 
   const handleToggleShield = async () => {
     if (!tokens?.accessToken || !user || !protection || !isInitialized) {
-      Alert.alert("Error", "You must be logged in and initialized to use the shield.");
+      router.push('/(auth)/login');
       return;
     }
     if (Platform.OS !== "web") {
