@@ -76,6 +76,7 @@ export const useSpotifyAuth = () => {
   }, []);
 
   const handleLogin = async () => {
+    if (loading) return false;
     try {
       setLoading(true);
       setError(null);
