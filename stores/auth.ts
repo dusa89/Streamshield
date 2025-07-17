@@ -167,6 +167,7 @@ export const useAuthStore = create<AuthState>()(
         onRehydrateStorage: () => {
           console.log("Hydration starting");
           return (state, error) => {
+            console.log("Hydration callback called");
             if (error) {
               console.error("Hydration error:", error);
               // Reset to safe state on error

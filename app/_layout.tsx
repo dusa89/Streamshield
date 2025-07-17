@@ -23,7 +23,7 @@ import { Redirect } from "expo-router";
 import { useAuthStore } from "@/stores/auth";
 import { initializeSpotifyService } from "@/services/spotify";
 import { ActivityIndicator } from "react-native";
-import ErrorBoundary from 'react-native-error-boundary';
+import ErrorBoundary from "react-native-error-boundary";
 
 export { ErrorBoundary } from "expo-router";
 
@@ -42,15 +42,15 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isHydrating } = useAuthStore();
   const router = useRouter();
   const [segments] = useSegments();
-  const inAuthGroup = segments[0] === '(auth)';
+  const inAuthGroup = segments[0] === "(auth)";
 
   useEffect(() => {
     if (isHydrating) return;
 
     if (isAuthenticated && inAuthGroup) {
-      router.replace('/(tabs)');
+      router.replace("/(tabs)");
     } else if (!isAuthenticated && !inAuthGroup) {
-      router.replace('/(auth)');
+      router.replace("/(auth)");
     }
   }, [isAuthenticated, isHydrating, segments, router]);
 
@@ -78,12 +78,25 @@ export default function RootLayout() {
     themePref === "auto" ? colorScheme ?? "light" : themePref;
   const theme = themes[colorTheme][effectiveTheme];
 
-  const { isAuthenticated, isHydrating: authHydrating } = useAuthStore();
+  const { isAuthenticated, isHydrating: authHydrating, setIsHydrating } = useAuthStore();
 
   // Initialize the auth store for Spotify service to avoid circular dependencies
   useEffect(() => {
     initializeSpotifyService(useAuthStore);
   }, []);
+
+  // Handle hydration completion
+  useEffect(() => {
+    if (authHydrating) {
+      // Set a timeout to ensure hydration completes
+      const timer = setTimeout(() => {
+        console.log("Forcing hydration completion");
+        setIsHydrating(false);
+      }, 2000); // 2 second timeout
+
+      return () => clearTimeout(timer);
+    }
+  }, [authHydrating, setIsHydrating]);
 
   useEffect(() => {
     if (fontsLoaded || fontError) {
@@ -92,7 +105,7 @@ export default function RootLayout() {
     }
   }, [fontsLoaded, fontError]);
 
-  console.log('Layout loading check:', {
+  console.log("Layout loading check:", {
     fontsLoaded,
     fontError,
     authHydrating: useAuthStore.getState().isHydrating,
@@ -100,7 +113,7 @@ export default function RootLayout() {
   });
 
   if (!fontsLoaded && !fontError || authHydrating || themeHydrating) {
-    return <ActivityIndicator size="large" style={{ flex: 1, justifyContent: 'center' }} />;
+    return <ActivityIndicator size="large" style={{ flex: 1, justifyContent: "center" }} />;
   }
 
   if (!isAuthenticated) {
