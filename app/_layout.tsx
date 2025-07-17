@@ -1,4 +1,4 @@
-import React, { useCallback } from "react";
+import React from "react";
 import {
   useFonts,
   Inter_400Regular,
@@ -8,7 +8,6 @@ import {
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect } from "react";
-import { View } from "react-native";
 import { useColorScheme } from "react-native";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { trpc, trpcClient } from "@/lib/trpc";
@@ -19,7 +18,6 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { themes } from "@/constants/colors";
 import { StatusBar as ExpoStatusBar } from "expo-status-bar";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { Redirect } from "expo-router";
 import { useAuthStore } from "@/stores/auth";
 import { initializeSpotifyService } from "@/services/spotify";
 import { ActivityIndicator } from "react-native";
@@ -58,11 +56,7 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
     return <ActivityIndicator />;
   }
 
-  if (!isHydrating && isAuthenticated) {
-    return <Redirect href="/(tabs)" />;
-  }
-
-  return isAuthenticated === !inAuthGroup ? children : null;
+  return isAuthenticated === !inAuthGroup ? children : <ActivityIndicator style={{ flex: 1, justifyContent: "center" }} />;
 }
 
 export default function RootLayout() {
@@ -78,7 +72,7 @@ export default function RootLayout() {
     themePref === "auto" ? colorScheme ?? "light" : themePref;
   const theme = themes[colorTheme][effectiveTheme];
 
-  const { isAuthenticated, isHydrating: authHydrating, setIsHydrating } = useAuthStore();
+  const { isHydrating: authHydrating, setIsHydrating } = useAuthStore();
 
   // Initialize the auth store for Spotify service to avoid circular dependencies
   useEffect(() => {
@@ -116,9 +110,7 @@ export default function RootLayout() {
     return <ActivityIndicator size="large" style={{ flex: 1, justifyContent: "center" }} />;
   }
 
-  if (!isAuthenticated) {
-    return <Redirect href="/(auth)" />;
-  }
+
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
