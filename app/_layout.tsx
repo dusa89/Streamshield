@@ -92,6 +92,13 @@ export default function RootLayout() {
     }
   }, [fontsLoaded, fontError]);
 
+  console.log('Layout loading check:', {
+    fontsLoaded,
+    fontError,
+    authHydrating: useAuthStore.getState().isHydrating,
+    themeHydrating: useThemeStore.getState().isHydrating
+  });
+
   if (!fontsLoaded && !fontError || authHydrating || themeHydrating) {
     return <ActivityIndicator size="large" style={{ flex: 1, justifyContent: 'center' }} />;
   }

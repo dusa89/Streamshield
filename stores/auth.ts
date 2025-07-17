@@ -48,15 +48,17 @@ interface AuthState {
 
 const scopes = ['user-read-playback-state', 'user-modify-playback-state', 'playlist-modify-public', 'playlist-modify-private', 'user-read-recently-played'];
 
-export const useAuthStore = create<AuthState>()(devtools(immer(persist((set, get) => ({
-  tokens: null,
-  user: null,
-  sessionHistory: [],
-  recentTracks: [],
-  isLoggingIn: false,
-  isLoggingOut: false,
-  isAuthenticated: false,
-  isHydrating: true,
+export const useAuthStore = create<AuthState>()(devtools(immer(persist((set, get) => {
+  console.log('Auth store creating...');
+  return {
+    tokens: null,
+    user: null,
+    sessionHistory: [],
+    recentTracks: [],
+    isLoggingIn: false,
+    isLoggingOut: false,
+    isAuthenticated: false,
+    isHydrating: true,
   logout: async () => {
     set({ isLoggingOut: true });
     try {
@@ -157,17 +159,20 @@ export const useAuthStore = create<AuthState>()(devtools(immer(persist((set, get
     return (state, error) => {
       if (error) {
         console.error('Hydration error:', error);
-        // Note: set is not available in onRehydrateStorage callback
-        // The store will handle invalid states through the persist middleware
-        return;
-      }
-      if (state) {
-        if (state.isAuthenticated && (!state.tokens || !state.tokens.refreshToken)) {
-          console.warn('Invalid hydrated state: Authenticated but no valid tokens');
-          // The store will handle this through the persist middleware
+        if (state) {
+          set({ tokens: null, user: null, isAuthenticated: false, isHydrating: false });
+        }
+      } else {
+        console.log('Hydration finished');
+        if (state) {
+          if (state.isAuthenticated && (!state.tokens || !state.tokens.refreshToken)) {
+            console.warn('Invalid hydrated state: Authenticated but no valid tokens');
+            set({ tokens: null, isAuthenticated: false });
+          }
+          set({ isHydrating: false });
         }
       }
-      console.log('Hydration finished');
     };
   },
 }))));
+console.log('Auth store created.');
