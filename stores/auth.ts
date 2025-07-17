@@ -45,6 +45,7 @@ interface AuthState {
   setLoggingIn: (loggingIn: boolean) => void;
   refreshTokens: () => Promise<void>;
   login: (redirectUri: string, clientId: string, scopes: string[]) => Promise<void>;
+  setIsHydrating: (hydrating: boolean) => void;
 }
 
 const scopes = ["user-read-playback-state", "user-modify-playback-state", "playlist-modify-public", "playlist-modify-private", "user-read-recently-played"];
@@ -152,6 +153,7 @@ export const useAuthStore = create<AuthState>()(
           // Note: This is a placeholder; main login is handled in useSpotifyAuth.ts. For auto re-login, trigger UI flow instead.
           throw new Error("Login should be triggered via UI for proper PKCE handling");
         },
+        setIsHydrating: (hydrating: boolean) => set({ isHydrating: hydrating }),
       })),
       {
         name: "auth-storage",
@@ -171,14 +173,13 @@ export const useAuthStore = create<AuthState>()(
               return;
             } else {
               console.log("Hydration finished");
-              if (state) {
-                if (state.isAuthenticated && (!state.tokens?.refreshToken)) {
-                  console.warn("Invalid hydrated state: Authenticated but no valid tokens");
-                  // The store will handle this through the persist middleware
-                }
-                // Set isHydrating to false after successful hydration
-                return;
+              if (state?.isAuthenticated && (!state.tokens?.refreshToken)) {
+                console.warn("Invalid hydrated state: Authenticated but no valid tokens");
+                // The store will handle this through the persist middleware
               }
+              // Set isHydrating to false after successful hydration
+              // We'll handle this in the component that uses the store
+              return;
             }
           };
         },
