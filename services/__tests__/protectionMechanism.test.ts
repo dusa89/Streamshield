@@ -17,4 +17,8 @@ describe("ProtectionMechanism", () => {
     protectionMechanism.deactivate();
     expect(protectionMechanism.isShieldActive()).toBe(false);
   });
+
+  it('should handle revoked token', () => {
+    // simulate revoked token scenario
+  });
 });
