@@ -145,7 +145,7 @@ export const useAuthStore = create<AuthState>()(devtools(immer(persist((set, get
     // Note: This is a placeholder; main login is handled in useSpotifyAuth.ts. For auto re-login, trigger UI flow instead.
     throw new Error("Login should be triggered via UI for proper PKCE handling");
   },
-}), { 
+}), {
   name: 'auth-storage',
   partialize: (state) => ({
     tokens: state.tokens,
@@ -173,6 +173,6 @@ export const useAuthStore = create<AuthState>()(devtools(immer(persist((set, get
         }
       }
     };
-  },
+  }
 }));
 console.log('Auth store created.');
