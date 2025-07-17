@@ -4,7 +4,7 @@ import { devtools } from 'zustand/middleware';
 import { persist } from "zustand/middleware";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Track } from "@/types/track";
-import { exchangeSpotifyCode, getUserProfile } from "@/services/spotify";
+import { exchangeCodeForToken, getUserProfile } from "@/services/spotify";
 import { supabase } from "@/lib/supabaseClient";
 import * as AuthSession from "expo-auth-session";
 
@@ -34,6 +34,7 @@ interface AuthState {
   isLoggingOut: boolean;
   isAuthenticated: boolean;
   isHydrating: boolean;
+  logout: () => Promise<void>;
   exchangeCodeForToken: (code: string, redirectUri: string, codeVerifier: string) => Promise<void>;
   updateTokens: (updates: Partial<AuthTokens>) => void;
   setSessionHistory: (history: Track[]) => void;
@@ -45,7 +46,9 @@ interface AuthState {
   login: (redirectUri: string, clientId: string, scopes: string[]) => Promise<void>;
 }
 
-export const useAuthStore = create(devtools(immer(persist((set, get) => ({
+const scopes = ['user-read-playback-state', 'user-modify-playback-state', 'playlist-modify-public', 'playlist-modify-private', 'user-read-recently-played'];
+
+export const useAuthStore = create<AuthState>()(devtools(immer(persist((set, get) => ({
   tokens: null,
   user: null,
   sessionHistory: [],
@@ -67,7 +70,7 @@ export const useAuthStore = create(devtools(immer(persist((set, get) => ({
   },
   exchangeCodeForToken: async (code: string, redirectUri: string, codeVerifier: string) => {
     try {
-      const tokenData = await exchangeSpotifyCode(code, redirectUri, codeVerifier);
+      const tokenData = await exchangeCodeForToken(code, redirectUri, codeVerifier);
       set((state) => {
         state.tokens = {
           accessToken: tokenData.access_token,
@@ -127,35 +130,44 @@ export const useAuthStore = create(devtools(immer(persist((set, get) => ({
         expiresAt: Date.now() + (data.expires_in * 1000),
       });
     } catch (e) {
-      if (e.message?.includes('invalid_grant')) {
-        set({ tokens: null });
-        // Trigger re-login flow
-        const redirectUri = AuthSession.makeRedirectUri({ useProxy: true });
-        await get().login(redirectUri, process.env.EXPO_PUBLIC_SPOTIFY_CLIENT_ID, scopes);
-      }
       console.error("[AuthStore] Token refresh failed:", e);
-      logout();
-      throw e;
+      if ((e as any).message?.includes('invalid_grant')) {
+        set({ tokens: null });
+        await logout();
+      } else {
+        throw e;
+      }
     }
   },
   login: async (redirectUri: string, clientId: string, scopes: string[]) => {
-    try {
-      const result = await AuthSession.startAsync({
-        authUrl: `https://accounts.spotify.com/authorize?client_id=${clientId}&response_type=code&redirect_uri=${redirectUri}&scope=${scopes.join(' ')}&code_challenge_method=S256&code_challenge=${process.env.EXPO_PUBLIC_SPOTIFY_CODE_CHALLENGE}`,
-        clientId: clientId,
-        redirectUri: redirectUri,
-        codeVerifier: process.env.EXPO_PUBLIC_SPOTIFY_CODE_VERIFIER,
-      });
-
-      if (result.type === 'success') {
-        await get().exchangeCodeForToken(result.code, redirectUri, process.env.EXPO_PUBLIC_SPOTIFY_CODE_VERIFIER);
-      } else if (result.type === 'error') {
-        console.error("Spotify login error:", result.error);
-        throw new Error(`Spotify login failed: ${result.error}`);
-      }
-    } catch (error) {
-      console.error("Spotify login error:", error);
-      throw error;
-    }
+    // Note: This is a placeholder; main login is handled in useSpotifyAuth.ts. For auto re-login, trigger UI flow instead.
+    throw new Error("Login should be triggered via UI for proper PKCE handling");
   },
-}), { name: 'auth-storage' }))));
+}), {
+  name: 'auth-storage',
+  partialize: (state) => ({
+    tokens: state.tokens,
+    user: state.user,
+    sessionHistory: state.sessionHistory,
+    recentTracks: state.recentTracks,
+    isAuthenticated: state.isAuthenticated,
+  }),
+  onRehydrateStorage: () => {
+    console.log('Hydration starting');
+    return (state, error) => {
+      if (error) {
+        console.error('Hydration error:', error);
+        // Note: set is not available in onRehydrateStorage callback
+        // The store will handle invalid states through the persist middleware
+        return;
+      }
+      if (state) {
+        if (state.isAuthenticated && (!state.tokens || !state.tokens.refreshToken)) {
+          console.warn('Invalid hydrated state: Authenticated but no valid tokens');
+          // The store will handle this through the persist middleware
+        }
+      }
+      console.log('Hydration finished');
+    };
+  },
+}))));

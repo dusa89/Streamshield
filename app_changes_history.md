@@ -159,11 +159,23 @@ This file documents all code changes made to the StreamShield app for reference.
 - **Test Failures**: protectionMechanism.reset() method missing
 - **Build System**: Need to migrate from expo build to EAS build
 
+### Auth Hydration Fixes
+- **Files Modified**: stores/auth.ts
+- **Changes**: 
+  - Added onRehydrateStorage to handle hydration completion and errors
+  - Added partialize to selectively persist state fields
+  - Added validation for invalid states (e.g., authenticated without refresh token)
+  - Set isHydrating to false after hydration
+  - Fixed function names and imports for consistency
+  - Simplified refreshTokens error handling for invalid_grant
+- **Purpose**: Prevent startup crashes from missing/undefined tokens during hydration
+- **Status**: [x] Completed
+
 ### Planned Final Steps
-- [ ] Fix auth hydration issues (stores/auth.ts)
+- [x] Fix auth hydration issues (stores/auth.ts)
 - [ ] Add app name header to main screen (app/(tabs)/index.tsx)
 - [ ] Complete APK build with EAS
--] Update README.md with setup instructions
+- [ ] Update README.md with setup instructions
 - [ ] Create final PR for all changes
 - [ ] Monitor for new issues
 
