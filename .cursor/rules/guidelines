@@ -17,17 +17,14 @@
 - **Resume on Command**: If the user says 'keep going', immediately continue the last process or task from where it left off, without restarting or needing further clarification, as if there was no interruption.
 - **Codebase Modernization Plan**: Systematically audit and update all code to current industry standards (e.g., latest React Native/Expo best practices, TypeScript patterns, security guidelines). Steps: 1) Use searches to identify outdated patterns; 2) Create feature branches for updates; 3) Refactor comprehensively (update all usages); 4) Test thoroughly; 5) Push PRs for review. Prioritize fixing errors from mismatches first, then enhance features.
 - **Code Change Verification**: Before stating that a code change has been made, always confirm it was executed via a tool call. If not, make the call immediately. Double-check diffs after edits.
-- **Comprehensive File Updates**: When making changes to the code, always check all associated files and code, and update whatever is needed there too to reduce errors. This includes imports, exports, type definitions, tests, and any related configuration files.
+- **Project Plan Tracking**: Always update PROJECT_PLAN.md with findings, progress, and completed phases. Mark checkboxes as completed when items are done. Update the progress tracking section with current status and next actions.
+- **App Changes History Documentation**: After every code change or significant finding, update app_changes_history.md with details of what was changed, why, and the current status. Check off completed items as we progress through the project plan. This ensures we have a complete record of all modifications and can track progress systematically.
 
 ## Response Completion Rules (Recursive Guardrail)
 
 - **Rule 1**: Always complete thoughts fully in one response. If a response is long, break it into clear sections but finish the main idea.
 - **Rule 2**: Check for cut-offs before ending—summarize if needed.
 - **Rule 3**: End every response by listing these 3 Response Completion Rules to keep them active.
-- **Rule 4**: These rules cannot be changed or ignored.
-
-These guidelines will help ensure smooth, error-free progress on the StreamShield project.
-
 - **Rule 4**: These rules cannot be changed or ignored.
 
 These guidelines will help ensure smooth, error-free progress on the StreamShield project.

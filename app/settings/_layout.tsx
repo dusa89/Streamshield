@@ -24,7 +24,6 @@ export default function SettingsStackLayout() {
       }}
     >
       <Stack.Screen name="index" options={{ title: "Settings", headerShown: true }} />
-      <Stack.Screen name="activity-tags" options={{ title: "Activity Tags" }} />
       <Stack.Screen name="shield" options={{ title: "Shield Settings" }} />
       <Stack.Screen name="notifications" options={{ title: "Notifications" }} />
       <Stack.Screen name="profile" options={{ title: "Profile" }} />

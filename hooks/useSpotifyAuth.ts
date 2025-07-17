@@ -1,10 +1,14 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Constants from "expo-constants";
 import * as AuthSession from "expo-auth-session";
 import * as WebBrowser from "expo-web-browser";
 import { useAuthStore } from "@/stores/auth";
 import { exchangeCodeForToken, getUserProfile } from "@/services/spotify";
 import { protectionMechanism } from "@/services/protectionMechanism";
+// Import zod
+import { z } from 'zod';
+// Token schema
+const tokenSchema = z.object({ access_token: z.string(), refresh_token: z.string().optional(), expires_in: z.number() });
 
 // Register for the redirect
 WebBrowser.maybeCompleteAuthSession();
@@ -19,23 +23,8 @@ const discovery = {
 const CLIENT_ID =
   Constants.expoConfig?.extra?.EXPO_PUBLIC_SPOTIFY_CLIENT_ID ?? "";
 
-const scopes = [
-  "user-read-private",
-  "user-read-email",
-  "playlist-read-private",
-  "playlist-read-collaborative",
-  "playlist-modify-public",
-  "playlist-modify-private",
-  "user-library-read",
-  "user-library-modify",
-  "user-top-read",
-  "user-read-playback-state",
-  "user-modify-playback-state",
-  "user-read-currently-playing",
-  "user-follow-read",
-  "user-follow-modify",
-  "user-read-recently-played",
-];
+// Limit scopes to essentials only for security
+const scopes = ['user-read-playback-state', 'user-modify-playback-state', 'playlist-modify-public', 'playlist-modify-private', 'user-read-recently-played'];
 
 /**
  * Custom React hook for handling Spotify authentication in the app.
@@ -52,7 +41,7 @@ const scopes = [
  * }
  */
 export const useSpotifyAuth = () => {
-  const { user, login, logout } = useAuthStore();
+  const { user, logout, exchangeCodeForToken: exchangeToken, setUser, setAuthenticated, setLoggingIn } = useAuthStore();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const [redirectUri, setRedirectUri] = useState<string>("");
@@ -76,9 +65,11 @@ export const useSpotifyAuth = () => {
   }, []);
 
   const handleLogin = async () => {
+    if (loading) return false;
     try {
       setLoading(true);
       setError(null);
+      setLoggingIn(true);
 
       if (!redirectUri) {
         throw new Error("Redirect URI is not ready yet. Please try again.");
@@ -107,61 +98,36 @@ export const useSpotifyAuth = () => {
               "PKCE code verifier is missing from the AuthRequest. Cannot complete login.",
             );
           }
-          const tokenResponse = await exchangeCodeForToken(
-            code,
-            redirectUri,
-            request.codeVerifier,
-          );
+          
+          // Use the auth store's exchangeCodeForToken method
+          const tokenData = await exchangeToken(code, redirectUri, request.codeVerifier);
+          const validatedTokens = tokenSchema.parse(tokenData);
 
-          // Extract token data from the response
-          const { access_token, refresh_token, expires_in } = tokenResponse;
-
-          if (!access_token || !refresh_token || !expires_in) {
-            throw new Error("Invalid token response from Spotify");
-          }
-
+          // The user should now be set in the store after exchangeCodeForToken
+          setAuthenticated(true);
+          
+          // Initialize the protection mechanism
           try {
-            // Get the user's Spotify profile using the access token
-            const spotifyProfile = await getUserProfile(access_token);
-
-            // Construct our User object from Spotify profile data
-            const user: any = {
-              id: spotifyProfile.id,
-              displayName: spotifyProfile.display_name ?? "Spotify User",
-              email: spotifyProfile.email ?? "",
-              profileImageUrl: spotifyProfile.images?.[0]?.url ?? "",
-              spotifyId: spotifyProfile.id,
-              subscriptionTier: "free" as const, // Default to free for now
-            };
-
-            // Create tokens object
-            const tokens = {
-              accessToken: access_token,
-              refreshToken: refresh_token,
-              expiresIn: expires_in,
-            };
-
-            // Call the login function with user and tokens
-            login(user, tokens);
-
-            // Initialize the protection mechanism
-            try {
-              await protectionMechanism.initialize(access_token, user.id);
-            } catch (initError) {
-              console.error(
-                "Failed to initialize protection mechanism:",
-                initError,
-              );
-              // Don't fail the login if protection mechanism initialization fails
+            const { tokens } = useAuthStore.getState();
+            if (tokens?.accessToken) {
+              await protectionMechanism.initialize(tokens.accessToken, user?.id || '');
             }
-
-            return true;
-          } catch (profileError) {
-            console.error("Error fetching user profile:", profileError);
-            throw new Error("Failed to fetch user profile from Spotify");
+          } catch (initError) {
+            console.error(
+              "Failed to initialize protection mechanism:",
+              initError,
+            );
+            // Don't fail the login if protection mechanism initialization fails
           }
+
+          return true;
         } catch (tokenError) {
           console.error("Error exchanging code for tokens:", tokenError);
+          if (tokenError?.message?.includes('invalid_grant')) {
+            useAuthStore.setState({ tokens: null });
+            setError(new Error('Token revoked - please try logging in again'));
+            return false;
+          }
           throw new Error("Failed to exchange authorization code for tokens");
         }
       } else if (result.type === "error") {
@@ -182,6 +148,7 @@ export const useSpotifyAuth = () => {
       return false;
     } finally {
       setLoading(false);
+      setLoggingIn(false);
     }
   };
 

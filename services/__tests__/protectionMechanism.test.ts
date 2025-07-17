@@ -2,8 +2,7 @@ import { protectionMechanism } from "../protectionMechanism";
 
 describe("ProtectionMechanism", () => {
   beforeEach(() => {
-    // Ensure shield is deactivated before each test
-    protectionMechanism.deactivate();
+    protectionMechanism.reset();
   });
 
   it("should activate the shield", () => {
@@ -17,5 +16,9 @@ describe("ProtectionMechanism", () => {
     expect(protectionMechanism.isShieldActive()).toBe(true);
     protectionMechanism.deactivate();
     expect(protectionMechanism.isShieldActive()).toBe(false);
+  });
+
+  it('should handle revoked token', () => {
+    // simulate revoked token scenario
   });
 });

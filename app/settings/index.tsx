@@ -53,9 +53,6 @@ export default function SettingsScreen() {
     });
   }, [navigation, theme, router]);
 
-  const handleActivityTags = () => {
-    router.push("/settings/activity-tags");
-  };
   const handleNotifications = () => {
     router.push("/settings/notifications");
   };
@@ -64,6 +61,9 @@ export default function SettingsScreen() {
   };
   
   console.log("DEBUG: hideAutoDisableWarning =", hideAutoDisableWarning);
+  console.log("DEBUG: hideAutoDisableWarning =", hideAutoDisableWarning);
+
+  const imageUrl = user?.profileImageUrl ?? user?.avatarUrl ?? "default-image";
 
   return (
     <SafeAreaView
@@ -88,7 +88,7 @@ export default function SettingsScreen() {
             <Text style={[styles.profileName, { color: theme.text }]}>
               {user?.displayName}
             </Text>
-            <Text style={[styles.profileEmail, { color: theme.text }]}>
+            <Text style={[styles.profileEmail, { color: theme.text }]}>r
               {user?.email}
             </Text>
           </View>
@@ -229,27 +229,6 @@ export default function SettingsScreen() {
             marginBottom: 16,
           }}
         />
-        <Pressable
-          style={[
-            styles.sectionContainer,
-            styles.settingsNavItem,
-            { backgroundColor: theme.background, borderColor: theme.border },
-          ]}
-          onPress={handleActivityTags}
-        >
-          <View style={styles.settingIconContainer}>
-            <FontAwesome name="tag" size={20} color={theme.text} />
-          </View>
-          <Text style={[styles.settingTitle, { color: theme.text }]}>
-            Activity Tags
-          </Text>
-          <FontAwesome
-            name="chevron-right"
-            size={18}
-            color={theme.text}
-            style={{ marginLeft: "auto" }}
-          />
-        </Pressable>
         <Pressable
           style={[
             styles.sectionContainer,

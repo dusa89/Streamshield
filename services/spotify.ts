@@ -1,8 +1,8 @@
 import * as AuthSession from "expo-auth-session";
 import { Track } from "@/types/track";
 import { supabase } from "@/lib/supabaseClient";
-import { useAuthStore } from "@/stores/auth";
-import type SpotifyWebApi from "spotify-web-api-node";
+import { UserDevice } from "@types/spotify-web-api-node";
+
 // This function now just returns the result of makeRedirectUri
 export const getSpotifyRedirectUri = () => {
   try {
@@ -115,18 +115,20 @@ export const classifyTokenError = (
  * Handles Spotify API errors gracefully, with automatic token refresh when possible
  * @param error The error to handle
  * @param retryFunction Function to retry after token refresh
+ * @param authStore The auth store instance to use for token management
  * @returns Promise that resolves with the retry result or rejects with user-friendly error
  */
 export const handleSpotifyError = async (
   error: any,
   retryFunction?: () => Promise<any>,
+  authStore?: any,
 ) => {
   const { type, message } = classifyTokenError(error);
 
   // If it's a token error and we have a retry function, try to refresh and retry
-  if ((type === "revoked" || type === "invalid_refresh") && retryFunction) {
+  if ((type === "revoked" || type === "invalid_refresh") && retryFunction && authStore) {
     try {
-      const { tokens, updateTokens } = useAuthStore.getState();
+      const { tokens, updateTokens } = authStore.getState();
       if (tokens?.refreshToken) {
         const newTokenData = await refreshAuthToken(tokens.refreshToken);
         if (newTokenData.access_token) {
@@ -198,12 +200,9 @@ export const refreshAuthToken = async (refreshToken: string) => {
       error.status === 0; // Network error
     
     if (isRefreshTokenInvalid && !isNetworkError) {
-      try {
-        const { logout } = useAuthStore.getState();
-        logout();
-      } catch (logoutError) {
-        console.error("Failed to logout after refresh failure:", logoutError);
-      }
+      // Note: We can't call logout here due to circular dependency
+      // The calling code should handle logout if needed
+      console.warn("Refresh token is invalid - user should be logged out");
     }
     
     throw error;
@@ -212,10 +211,11 @@ export const refreshAuthToken = async (refreshToken: string) => {
 
 /**
  * Checks if the current token needs to be refreshed (expires within 5 minutes)
+ * @param authStore The auth store instance to check tokens
  * @returns true if token should be refreshed, false otherwise
  */
-export const shouldRefreshToken = () => {
-  const { tokens } = useAuthStore.getState();
+export const shouldRefreshToken = (authStore: any) => {
+  const { tokens } = authStore.getState();
   if (!tokens?.expiresAt) return false;
 
   // Refresh if token expires within 5 minutes
@@ -225,16 +225,17 @@ export const shouldRefreshToken = () => {
 
 /**
  * Proactively refreshes the token if it's about to expire
+ * @param authStore The auth store instance to use
  * @returns Promise that resolves when token is refreshed (or if no refresh needed)
  * @throws Error if refresh fails and user should be logged out
  */
-export const refreshTokenIfNeeded = async () => {
-  const { tokens, updateTokens, logout } = useAuthStore.getState();
+export const refreshTokenIfNeeded = async (authStore: any) => {
+  const { tokens, updateTokens, logout } = authStore.getState();
   if (!tokens) {
     throw new Error("No tokens available");
   }
 
-  if (shouldRefreshToken()) {
+  if (shouldRefreshToken(authStore)) {
     if (!tokens.refreshToken) {
       console.error(
         "Attempted to refresh token, but no refresh token is available. Logging out.",
@@ -256,13 +257,7 @@ export const refreshTokenIfNeeded = async () => {
       }
     } catch (error) {
       console.error("Proactive token refresh failed:", error);
-      // Decide if we should log out the user based on the error
-      const { type } = classifyTokenError(error);
-      if (type === "revoked" || type === "invalid_refresh") {
-        logout();
-        throw new Error("Session expired. Please log in again.");
-      }
-      // For other errors, we might not need to log out immediately
+      throw error;
     }
   }
 };
@@ -315,7 +310,7 @@ export const getUserProfile = async (accessToken: string) => {
 
 export const getUserPlaylists = async () => {
   try {
-    const { accessToken } = useAuthStore.getState().tokens ?? {};
+    const { accessToken } = getAuthState().tokens ?? {};
     if (!accessToken) {
       throw new Error("Not authenticated for fetching playlists.");
     }
@@ -355,10 +350,28 @@ export const fetchWithAutoRefresh = async (
   logout: () => void,
 ) => {
   try {
-    await refreshTokenIfNeeded();
-    const currentTokens = useAuthStore.getState().tokens;
-    if (!currentTokens?.accessToken) throw new Error("Authentication failed");
-    return await apiCall(currentTokens.accessToken);
+    // Check if token needs refresh (expires within 5 minutes)
+    const fiveMinutesFromNow = Date.now() + 5 * 60 * 1000;
+    const needsRefresh = tokens.expiresAt && tokens.expiresAt <= fiveMinutesFromNow;
+    
+    if (needsRefresh && tokens.refreshToken) {
+      try {
+        const refreshedTokenData = await refreshAuthToken(tokens.refreshToken);
+        updateTokens({
+          accessToken: refreshedTokenData.access_token,
+          refreshToken: refreshedTokenData.refresh_token ?? tokens.refreshToken,
+          expiresIn: refreshedTokenData.expires_in,
+          expiresAt: Date.now() + refreshedTokenData.expires_in * 1000,
+        });
+        return await apiCall(refreshedTokenData.access_token);
+      } catch (refreshError) {
+        console.error("Token refresh failed:", refreshError);
+        logout();
+        throw new Error("Session expired. Please log in again.");
+      }
+    }
+    
+    return await apiCall(tokens.accessToken);
   } catch (error: any) {
     const { type } = classifyTokenError(error);
     if (type === "revoked" || type === "invalid_refresh") {
@@ -388,8 +401,26 @@ export const fetchWithAutoRefresh = async (
   }
 };
 
+// Helper function to get auth store state without circular dependency
+let authStoreInstance: any = null;
+
+export const setAuthStore = (store: any) => {
+  authStoreInstance = store;
+};
+
+export const initializeSpotifyService = (authStore: any) => {
+  authStoreInstance = authStore;
+};
+
+const getAuthState = () => {
+  if (!authStoreInstance) {
+    throw new Error("Auth store not initialized. Call initializeSpotifyService() first.");
+  }
+  return authStoreInstance.getState();
+};
+
 export const getCurrentlyPlaying = async (): Promise<Track | null> => {
-  const { tokens, updateTokens, logout } = useAuthStore.getState();
+  const { tokens, updateTokens, logout } = getAuthState();
   if (!tokens) return null;
 
   return fetchWithAutoRefresh(
@@ -430,48 +461,51 @@ export const getCurrentlyPlaying = async (): Promise<Track | null> => {
   );
 };
 
-export const getRecentlyPlayed = async (): Promise<Track[]> => {
-  const { tokens, updateTokens, logout } = useAuthStore.getState();
-  if (!tokens) return [];
-
-  return fetchWithAutoRefresh(
-    async (accessToken: string) => {
-      const response = await spotifyFetchWithRateLimit(
-        "https://api.spotify.com/v1/me/player/recently-played?limit=50",
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-        },
-      );
-      if (!response.ok) return [];
-      const data = await response.json();
-      return (
-        data.items?.map(({ track, played_at }: any) => ({
-          id: track.id,
-          name: track.name,
-          artist: track.artists.map((_artist: any) => _artist.name).join(", "),
-          artistId: track.artists[0]?.id,
-          album: track.album.name,
-          albumId: track.album.id,
-          albumArt: track.album.images[0]?.url,
-          duration: track.duration_ms,
-          timestamp: new Date(played_at).getTime(),
-          uri: track.uri,
-        })) ?? []
-      );
-    },
-    tokens,
-    updateTokens,
-    logout,
-  );
+// Add debounce function
+const debounce = (func, delay) => {
+  let timeout;
+  return (...args) => {
+    clearTimeout(timeout);
+    timeout = setTimeout(() => func(...args), delay);
+  };
 };
+// Wrap API calls e.g., getRecentlyPlayed:
+const getRecentlyPlayed = debounce(async (accessToken) => {
+  try {
+    const response = await spotifyFetchWithRateLimit(
+      "https://api.spotify.com/v1/me/player/recently-played?limit=50",
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      },
+    );
+    if (!response.ok) return [];
+    const data = await response.json();
+    return (
+      data.items?.map(({ track, played_at }: any) => ({
+        id: track.id,
+        name: track.name,
+        artist: track.artists.map((_artist: any) => _artist.name).join(", "),
+        artistId: track.artists[0]?.id,
+        album: track.album.name,
+        albumId: track.album.id,
+        albumArt: track.album.images[0]?.url,
+        duration: track.duration_ms,
+        timestamp: new Date(played_at).getTime(),
+        uri: track.uri,
+      })) ?? []
+    );
+  } catch (e) {
+    console.error('API error:', e);
+  }
+}, 300);
 
 export const findUserPlaylist = async (
   playlistName?: string,
   playlistId?: string,
 ) => {
-  const { tokens, updateTokens, logout } = useAuthStore.getState();
+  const { tokens, updateTokens, logout } = getAuthState();
   if (!tokens) throw new Error("Not authenticated");
 
   return fetchWithAutoRefresh(
@@ -508,7 +542,7 @@ export const createUserPlaylistWithRefresh = async (
   userId: string,
   playlistName: string,
 ) => {
-  const { tokens, updateTokens, logout } = useAuthStore.getState();
+  const { tokens, updateTokens, logout } = getAuthState();
   if (!tokens) throw new Error("No tokens for playlist creation");
 
   return fetchWithAutoRefresh(
@@ -605,7 +639,7 @@ export const addTrackToPlaylist = async (
   playlistId: string,
   trackUri: string,
 ) => {
-  const { tokens, updateTokens, logout } = useAuthStore.getState();
+  const { tokens, updateTokens, logout } = getAuthState();
   if (!tokens) throw new Error("No tokens available to add track");
 
   return fetchWithAutoRefresh(
@@ -644,7 +678,7 @@ export const removeTrackFromPlaylistWithRefresh = async (
   playlistId: string,
   trackUri: string,
 ) => {
-  const { tokens, updateTokens, logout } = useAuthStore.getState();
+  const { tokens, updateTokens, logout } = getAuthState();
   if (!tokens) throw new Error("No tokens available for track removal");
 
   return fetchWithAutoRefresh(
@@ -687,7 +721,7 @@ export const removeTrackFromPlaylist = async (
   trackUri: string,
 ) => {
   try {
-    const { accessToken } = useAuthStore.getState().tokens ?? {};
+    const { accessToken } = getAuthState().tokens ?? {};
     if (!accessToken) throw new Error("Not authenticated");
 
     const response = await spotifyFetchWithRateLimit(
@@ -943,13 +977,13 @@ export const clearPlaylist = async (accessToken: string, playlistId: string): Pr
     console.error(`Failed to clear playlist ${playlistId}:`, error);
     throw error; // Re-throw to be handled by the caller
   }
-}
+};
 
 export const searchSpotify = async (
   query: string,
   type: "artist" | "album" | "track",
 ) => {
-  const { tokens } = useAuthStore.getState();
+  const { tokens } = getAuthState();
   if (!tokens?.accessToken) {
     throw new Error("Not authenticated for search");
   }
@@ -969,7 +1003,7 @@ export const searchSpotify = async (
 };
 
 export const getPlaybackState = async (): Promise<{ is_playing: boolean } | null> => {
-  const { tokens } = useAuthStore.getState();
+  const { tokens, updateTokens, logout } = getAuthState();
   if (!tokens) return null;
 
   try {
@@ -998,7 +1032,7 @@ export const getPlaybackState = async (): Promise<{ is_playing: boolean } | null
 };
 
 export const togglePlayback = async () => {
-  const { tokens, updateTokens, logout } = useAuthStore.getState();
+  const { tokens, updateTokens, logout } = getAuthState();
   if (!tokens) throw new Error("Not authenticated");
 
   return fetchWithAutoRefresh(
@@ -1036,7 +1070,7 @@ export const togglePlayback = async () => {
 };
 
 export const pausePlayback = async () => {
-  const { tokens, updateTokens, logout } = useAuthStore.getState();
+  const { tokens, updateTokens, logout } = getAuthState();
   if (!tokens) return;
 
   await fetchWithAutoRefresh(
@@ -1056,7 +1090,7 @@ export const pausePlayback = async () => {
 };
 
 export const resumePlayback = async () => {
-  const { tokens, updateTokens, logout } = useAuthStore.getState();
+  const { tokens, updateTokens, logout } = getAuthState();
   if (!tokens) return;
 
   await fetchWithAutoRefresh(
@@ -1076,7 +1110,7 @@ export const resumePlayback = async () => {
 };
 
 export const nextTrack = async () => {
-  const { tokens, updateTokens, logout } = useAuthStore.getState();
+  const { tokens, updateTokens, logout } = getAuthState();
   if (!tokens) return;
 
   await fetchWithAutoRefresh(
@@ -1096,7 +1130,7 @@ export const nextTrack = async () => {
 };
 
 export const previousTrack = async () => {
-  const { tokens, updateTokens, logout } = useAuthStore.getState();
+  const { tokens, updateTokens, logout } = getAuthState();
   if (!tokens) return;
 
   await fetchWithAutoRefresh(
@@ -1115,8 +1149,8 @@ export const previousTrack = async () => {
   );
 };
 
-export const getAvailableDevices = async (): Promise<SpotifyWebApi.UserDevice[]> => {
-  const { tokens, updateTokens, logout } = useAuthStore.getState();
+export const getAvailableDevices = async (): Promise<UserDevice[]> => {
+  const { tokens, updateTokens, logout } = getAuthState();
   if (!tokens?.accessToken) {
     throw new Error("Not authenticated");
   }
@@ -1149,7 +1183,7 @@ export const getDetailedPlaybackState = async (): Promise<{
   };
   item?: any;
 } | null> => {
-  const { tokens, updateTokens, logout } = useAuthStore.getState();
+  const { tokens, updateTokens, logout } = getAuthState();
   if (!tokens) return null;
 
   try {
@@ -1194,7 +1228,7 @@ export const transferPlayback = async (
   deviceId: string,
   play: boolean = false,
 ): Promise<void> => {
-  const { tokens, updateTokens, logout } = useAuthStore.getState();
+  const { tokens, updateTokens, logout } = getAuthState();
   if (!tokens) return;
 
   await fetchWithAutoRefresh(

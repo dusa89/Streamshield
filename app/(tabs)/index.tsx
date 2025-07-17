@@ -33,7 +33,7 @@ import { useRouter } from "expo-router";
 import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityIcons";
 import FontAwesome from "react-native-vector-icons/FontAwesome";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { protectionMechanism } from "@/services/protectionMechanism";
+import { useProtectionMechanism } from "@/services/protectionMechanism";
 import { dataSync } from "@/services/dataSync";
 import { useShieldTimer } from "@/hooks/useShieldTimer";
 import { useInitialization } from "@/hooks/useInitialization";
@@ -90,7 +90,8 @@ export default function ShieldScreen() {
   const insets = useSafeAreaInsets();
 
   const remainingTime = useShieldTimer();
-  useInitialization(setShowInstructions);
+  const { isInitialized } = useInitialization(setShowInstructions);
+  const protection = useProtectionMechanism();
 
   const [showDisableWarning, setShowDisableWarning] = useState(false);
   const [dontShowAgain, setDontShowAgain] = useState(false);
@@ -151,71 +152,41 @@ export default function ShieldScreen() {
 
   const handleToggleShield = async () => {
     if (!tokens?.accessToken || !user) {
-      Alert.alert("Error", "You must be logged in to use the shield.");
+      router.push('/(auth)/login');
       return;
     }
     if (Platform.OS !== "web") {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
-
     try {
       setIsProcessing(true);
-
       if (!isShieldActive) {
-        // Activating shield
-        const activated = protectionMechanism.activate();
-
+        const activated = protection.activate();
         if (activated) {
-          // Process current track if there is one and we have an access token
-          if (currentTrack && tokens?.accessToken) {
-            await protectionMechanism.processCurrentTrack(
-              tokens.accessToken,
-              user.id,
-              currentTrack,
-            );
+          if (currentTrack && tokens.accessToken) {
+            await protection.processCurrentTrack(tokens.accessToken, user.id, currentTrack);
           }
-
-          // Toggle the shield state in the store with cloud sync
           await toggleShield(user.id);
-
-          // Set up auto-disable timer if needed
           if (shieldDuration > 0) {
-            // In a real app, we would set up a background task or notification
-            console.log(
-              `Shield will auto-disable after ${shieldDuration} minutes`,
-            );
+            console.log(`Shield will auto-disable after ${shieldDuration} minutes`);
           }
-
-          // Check if we need to show the exclusion instructions
-          if (!protectionMechanism.hasShownInstructions()) {
+          if (!protection.hasShownInstructions()) {
             setShowInstructions(true);
           }
         } else {
-          Alert.alert(
-            "Shield Activation Failed",
-            "Could not activate the shield. Please try again.",
-          );
+          Alert.alert("Shield Activation Failed", "Could not activate the shield.");
         }
       } else {
-        // Deactivating shield
-        const deactivated = protectionMechanism.deactivate();
-
+        const deactivated = protection.deactivate();
         if (deactivated) {
-          // Toggle the shield state in the store with cloud sync
           await toggleShield(user.id);
         } else {
-          Alert.alert(
-            "Shield Deactivation Failed",
-            "Could not deactivate the shield. Please try again.",
-          );
+          Alert.alert("Shield Deactivation Failed", "Could not deactivate the shield.");
         }
       }
     } catch (error) {
       console.error("Error toggling shield:", error);
-      Alert.alert(
-        "Shield Error",
-        "An error occurred while managing the shield. Please try again.",
-      );
+      Alert.alert("Shield Error", "An error occurred while managing the shield.");
     } finally {
       setIsProcessing(false);
     }
@@ -242,9 +213,13 @@ export default function ShieldScreen() {
 
   const handleExcludeSingleTrack = async (track: Track) => {
     if (!tokens?.accessToken || !user) return;
+    if (!protection) {
+      Alert.alert("Error", "Protection mechanism not initialized.");
+      return;
+    }
     setIsProcessing(true);
     try {
-      const success = await protectionMechanism.robustlyAddTracksToExclusionPlaylist(
+      const success = await protection.robustlyAddTracksToExclusionPlaylist(
         tokens.accessToken,
         user.id,
         [track],
@@ -264,9 +239,13 @@ export default function ShieldScreen() {
 
   const handleUndoSingleTrack = async (track: Track) => {
     if (!tokens?.accessToken || !user) return;
+    if (!protection) {
+      Alert.alert("Error", "Protection mechanism not initialized.");
+      return;
+    }
     setIsProcessing(true);
     try {
-      const success = await protectionMechanism.robustlyRemoveTracksFromExclusionPlaylist(
+      const success = await protection.robustlyRemoveTracksFromExclusionPlaylist(
         tokens.accessToken,
         user.id,
         [track],
@@ -332,17 +311,6 @@ export default function ShieldScreen() {
     return () => clearInterval(intervalId);
   }, [isPlaying, tokens?.accessToken, refreshCurrentlyPlaying]);
 
-
-  // Sync shield state with protection mechanism
-  useEffect(() => {
-    if (isShieldActive !== protectionMechanism.isShieldActive()) {
-      if (isShieldActive) {
-        protectionMechanism.activate();
-      } else {
-        protectionMechanism.deactivate();
-      }
-    }
-  }, [isShieldActive]);
 
   // Custom handler for the auto-disable switch
   const handleAutoDisableSwitch = (enabled: boolean) => {
@@ -425,11 +393,15 @@ export default function ShieldScreen() {
   // Batch exclude/undo handlers for selected tracks
   const handleBatchExcludeSelected = async () => {
     if (!tokens?.accessToken || !user || selectedTrackIds.length === 0) return;
+    if (!protection) {
+      Alert.alert("Error", "Protection mechanism not initialized.");
+      return;
+    }
     setExcludeLoading(true);
     setBatchExcludeLoading(true);
     try {
       const tracksToExclude = recentTracks.filter(t => selectedTrackIds.includes(t.id));
-      await protectionMechanism.robustlyAddTracksInBatch(
+      await protection.robustlyAddTracksInBatch(
         tokens.accessToken,
         user.id,
         tracksToExclude,
@@ -443,11 +415,15 @@ export default function ShieldScreen() {
   };
   const handleBatchUndoSelected = async () => {
     if (!tokens?.accessToken || !user || selectedTrackIds.length === 0) return;
+    if (!protection) {
+      Alert.alert("Error", "Protection mechanism not initialized.");
+      return;
+    }
     setUndoLoading(true);
     setBatchExcludeLoading(true);
     try {
       const tracksToUndo = recentTracks.filter(t => selectedTrackIds.includes(t.id));
-      await protectionMechanism.robustlyRemoveTracksInBatch(
+      await protection.robustlyRemoveTracksInBatch(
         tokens.accessToken,
         user.id,
         tracksToUndo,
@@ -471,9 +447,10 @@ export default function ShieldScreen() {
   // Helper to refresh exclusion state from Spotify
   const refreshExclusionState = useCallback(async () => {
     if (!tokens?.accessToken || !user) return;
+    if (!protection) return;
     try {
       // Fetch all exclusion playlists
-      const exclusionPlaylists = await protectionMechanism.getAllExclusionPlaylists(tokens.accessToken, user.id);
+      const exclusionPlaylists = await protection.getAllExclusionPlaylists(tokens.accessToken, user.id);
       const trackIds = new Set<string>();
       const albumIds = new Set<string>();
       const artistIds = new Set<string>();
@@ -493,7 +470,7 @@ export default function ShieldScreen() {
     } catch {
       // ignore
     }
-  }, [tokens?.accessToken, user]);
+  }, [tokens?.accessToken, user, protection]);
 
   // Call on mount and after exclude/undo
   useEffect(() => {
@@ -600,36 +577,42 @@ export default function ShieldScreen() {
             </View>
           )}
           <View style={styles.shieldContainer}>
-            <Pressable onPress={handleToggleShield} disabled={isProcessing}>
-                <LinearGradient
-                    colors={isShieldActive 
-                        ? [theme.primary, theme.primaryGradient || theme.primary] 
-                        : [theme.card, theme.card]
-                    }
-                    style={styles.shieldCard}
-                >
-                    <Pressable style={styles.shieldSettingsButton} onPress={() => router.push("/settings/shield")}>
-                        <MaterialCommunityIcons 
-                            name="cog"
-                            size={24}
-                            color={isShieldActive ? theme.onPrimary : theme.text}
-                        />
-                    </Pressable>
+            <Pressable
+              onPress={() => {
+                console.log('Shield button pressed');
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                handleToggleShield();
+              }}
+              disabled={isProcessing || !isInitialized}
+              activeOpacity={0.7}
+              style={styles.shieldContainer}
+            >
+              <LinearGradient
+                colors={isShieldActive ? [theme.primary, theme.primaryGradient ?? theme.primary] : [theme.card, theme.card]}
+                style={styles.shieldCard}
+              >
+                <Pressable style={styles.shieldSettingsButton} onPress={() => router.push("/settings/shield")}>
                     <MaterialCommunityIcons 
-                        name={isShieldActive ? "shield-check" : "shield-off-outline"}
-                        size={64}
-                        color={isShieldActive ? theme.onPrimary : theme.text}
-                        style={styles.shieldIcon}
+                        name="cog"
+                        size={24}
+                        color={isShieldActive ? theme.onPrimary ?? theme.text : theme.text}
                     />
-                    <Text style={[styles.shieldText, { color: isShieldActive ? theme.onPrimary : theme.text }]}>
-                        {isShieldActive ? "Shield Active" : "Shield Inactive"}
-                    </Text>
-                    <Text style={[styles.shieldDescription, { color: isShieldActive ? theme.onPrimary : theme.subtext }]}>
-                        {isShieldActive
-                            ? "Your listening is protected from affecting your Spotify recommendations"
-                            : "Tap to protect your listening history"}
-                    </Text>
-                </LinearGradient>
+                </Pressable>
+                <MaterialCommunityIcons 
+                    name={isShieldActive ? "shield-check" : "shield-off-outline"}
+                    size={64}
+                    color={isShieldActive ? theme.onPrimary ?? theme.text : theme.text}
+                    style={styles.shieldIcon}
+                />
+                <Text style={[styles.shieldText, { color: isShieldActive ? theme.onPrimary ?? theme.text : theme.text }]}>
+                    {isShieldActive ? "Shield Active" : "Shield Inactive"}
+                </Text>
+                <Text style={[styles.shieldDescription, { color: isShieldActive ? theme.onPrimary ?? theme.text : theme.subtext }]}>
+                    {isShieldActive
+                        ? "Your listening is protected from affecting your Spotify recommendations"
+                        : "Tap to protect your listening history"}
+                </Text>
+              </LinearGradient>
             </Pressable>
           </View>
 
@@ -677,12 +660,15 @@ export default function ShieldScreen() {
                     return;
                   }
                   try {
-                    if (currentTrack.albumId) setExcludedAlbumIds(prev => new Set(prev).add(currentTrack.albumId!));
+                    if (currentTrack.albumId) {
+                      const id = currentTrack.albumId;
+                      setExcludedAlbumIds(prev => new Set([...prev, id]));
+                    }
                     const albumTracks = await SpotifyService.getAlbumTracks(
                       tokens.accessToken,
                       currentTrack.albumId,
                     );
-                    await protectionMechanism.robustlyAddTracksInBatch(
+                    await protection.robustlyAddTracksInBatch(
                       tokens.accessToken,
                       user.id,
                       albumTracks,
@@ -695,16 +681,19 @@ export default function ShieldScreen() {
                 onUndoAlbum={async () => {
                   if (!tokens?.accessToken || !user || !currentTrack.albumId) return;
                   try {
-                    if (currentTrack.albumId) setExcludedAlbumIds(prev => {
-                      const next = new Set(prev);
-                      next.delete(currentTrack.albumId!);
-                      return next;
-                    });
+                    if (currentTrack.albumId) {
+                      const id = currentTrack.albumId;
+                      setExcludedAlbumIds(prev => {
+                        const next = new Set(prev);
+                        next.delete(id);
+                        return next;
+                      });
+                    }
                     const albumTracks = await SpotifyService.getAlbumTracks(
                       tokens.accessToken,
                       currentTrack.albumId,
                     );
-                    await protectionMechanism.robustlyRemoveTracksInBatch(
+                    await protection.robustlyRemoveTracksInBatch(
                       tokens.accessToken,
                       user.id,
                       albumTracks,
@@ -720,12 +709,15 @@ export default function ShieldScreen() {
                     return;
                   }
                   try {
-                    setExcludedArtistIds(prev => new Set(prev).add(currentTrack.artistId!));
+                    if (currentTrack.artistId) {
+                      const id = currentTrack.artistId;
+                      setExcludedArtistIds(prev => new Set([...prev, id]));
+                    }
                     const artistTracks = await SpotifyService.getArtistTracks(
                       tokens.accessToken,
                       currentTrack.artistId,
                     );
-                    await protectionMechanism.robustlyAddTracksInBatch(
+                    await protection.robustlyAddTracksInBatch(
                       tokens.accessToken,
                       user.id,
                       artistTracks,
@@ -738,16 +730,19 @@ export default function ShieldScreen() {
                 onUndoArtist={async () => {
                   if (!tokens?.accessToken || !user || !currentTrack.artistId) return;
                   try {
-                    setExcludedArtistIds(prev => {
-                      const next = new Set(prev);
-                      next.delete(currentTrack.artistId!);
-                      return next;
-                    });
+                    if (currentTrack.artistId) {
+                      const id = currentTrack.artistId;
+                      setExcludedArtistIds(prev => {
+                        const next = new Set(prev);
+                        next.delete(id);
+                        return next;
+                      });
+                    }
                     const artistTracks = await SpotifyService.getArtistTracks(
                       tokens.accessToken,
                       currentTrack.artistId,
                     );
-                    await protectionMechanism.robustlyRemoveTracksInBatch(
+                    await protection.robustlyRemoveTracksInBatch(
                       tokens.accessToken,
                       user.id,
                       artistTracks,
@@ -1027,12 +1022,15 @@ export default function ShieldScreen() {
                       return;
                     }
                     try {
-                      if (track.albumId) setExcludedAlbumIds(prev => new Set(prev).add(track.albumId!));
+                      if (track.albumId) {
+                        const id = track.albumId;
+                        setExcludedAlbumIds(prev => new Set([...prev, id]));
+                      }
                       const albumTracks = await SpotifyService.getAlbumTracks(
                         tokens.accessToken,
                         track.albumId,
                       );
-                      await protectionMechanism.robustlyAddTracksInBatch(
+                      await protection.robustlyAddTracksInBatch(
                         tokens.accessToken,
                         user.id,
                         albumTracks,
@@ -1045,16 +1043,19 @@ export default function ShieldScreen() {
                   onUndoAlbum={async () => {
                     if (!tokens?.accessToken || !user || !track.albumId) return;
                     try {
-                      if (track.albumId) setExcludedAlbumIds(prev => {
-                        const next = new Set(prev);
-                        next.delete(track.albumId!);
-                        return next;
-                      });
+                      if (track.albumId) {
+                        const id = track.albumId;
+                        setExcludedAlbumIds(prev => {
+                          const next = new Set(prev);
+                          next.delete(id);
+                          return next;
+                        });
+                      }
                       const albumTracks = await SpotifyService.getAlbumTracks(
                         tokens.accessToken,
                         track.albumId,
                       );
-                      await protectionMechanism.robustlyRemoveTracksInBatch(
+                      await protection.robustlyRemoveTracksInBatch(
                         tokens.accessToken,
                         user.id,
                         albumTracks,
@@ -1070,12 +1071,15 @@ export default function ShieldScreen() {
                       return;
                     }
                     try {
-                      if (track.artistId) setExcludedArtistIds(prev => new Set(prev).add(track.artistId!));
+                      if (track.artistId) {
+                        const id = track.artistId;
+                        setExcludedArtistIds(prev => new Set([...prev, id]));
+                      }
                       const artistTracks = await SpotifyService.getArtistTracks(
                         tokens.accessToken,
                         track.artistId,
                       );
-                      await protectionMechanism.robustlyAddTracksInBatch(
+                      await protection.robustlyAddTracksInBatch(
                         tokens.accessToken,
                         user.id,
                         artistTracks,
@@ -1088,16 +1092,19 @@ export default function ShieldScreen() {
                   onUndoArtist={async () => {
                     if (!tokens?.accessToken || !user || !track.artistId) return;
                     try {
-                      if (track.artistId) setExcludedArtistIds(prev => {
-                        const next = new Set(prev);
-                        next.delete(track.artistId!);
-                        return next;
-                      });
+                      if (track.artistId) {
+                        const id = track.artistId;
+                        setExcludedArtistIds(prev => {
+                          const next = new Set(prev);
+                          next.delete(id);
+                          return next;
+                        });
+                      }
                       const artistTracks = await SpotifyService.getArtistTracks(
                         tokens.accessToken,
                         track.artistId,
                       );
-                      await protectionMechanism.robustlyRemoveTracksInBatch(
+                      await protection.robustlyRemoveTracksInBatch(
                         tokens.accessToken,
                         user.id,
                         artistTracks,
@@ -1491,7 +1498,11 @@ export default function ShieldScreen() {
                 keyExtractor={(item) =>
                   item.track?.id ?? item.track?.name ?? Math.random().toString()
                 }
-                style={{ maxHeight: 400 }}
+                getItemLayout={(data, index) => ({
+                  length: 60, // Approximate height of each item
+                  offset: 60 * index,
+                  index,
+                })}
                 renderItem={({ item }) => {
                   const track = item.track;
                   const artist = track?.artists
@@ -1820,7 +1831,7 @@ export default function ShieldScreen() {
                 setExcludeModalVisible(false);
                 setExcludeLoading(true);
                 const tracksToExclude = recentTracks.filter(t => selectedTrackIds.includes(t.id));
-                await protectionMechanism.robustlyAddTracksInBatch(
+                await protection.robustlyAddTracksInBatch(
                   tokens.accessToken,
                   user.id,
                   tracksToExclude,
@@ -1852,7 +1863,7 @@ export default function ShieldScreen() {
                     allAlbumTracks.push(...albumTracks);
                   }
                 }
-                await protectionMechanism.robustlyAddTracksInBatch(
+                await protection.robustlyAddTracksInBatch(
                   tokens.accessToken,
                   user.id,
                   allAlbumTracks,
@@ -1884,7 +1895,7 @@ export default function ShieldScreen() {
                     allArtistTracks.push(...artistTracks);
                   }
                 }
-                await protectionMechanism.robustlyAddTracksInBatch(
+                await protection.robustlyAddTracksInBatch(
                   tokens.accessToken,
                   user.id,
                   allArtistTracks,
@@ -1929,7 +1940,7 @@ export default function ShieldScreen() {
                 setUndoModalVisible(false);
                 setUndoLoading(true);
                 const tracksToUndo = recentTracks.filter(t => selectedTrackIds.includes(t.id));
-                await protectionMechanism.robustlyRemoveTracksInBatch(
+                await protection.robustlyRemoveTracksInBatch(
                   tokens.accessToken,
                   user.id,
                   tracksToUndo,
@@ -1961,7 +1972,7 @@ export default function ShieldScreen() {
                     allAlbumTracks.push(...albumTracks);
                   }
                 }
-                await protectionMechanism.robustlyRemoveTracksInBatch(
+                await protection.robustlyRemoveTracksInBatch(
                   tokens.accessToken,
                   user.id,
                   allAlbumTracks,
@@ -1993,7 +2004,7 @@ export default function ShieldScreen() {
                     allArtistTracks.push(...artistTracks);
                   }
                 }
-                await protectionMechanism.robustlyRemoveTracksInBatch(
+                await protection.robustlyRemoveTracksInBatch(
                   tokens.accessToken,
                   user.id,
                   allArtistTracks,
