@@ -40,10 +40,11 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isHydrating } = useAuthStore();
   const router = useRouter();
   const [segments] = useSegments();
-  const inAuthGroup = segments[0] === "(auth)";
+  // Use optional chaining to handle brief undefined from useSegments()
+  const inAuthGroup = segments?.[0] === "(auth)";
 
   useEffect(() => {
-    if (isHydrating) return;
+    if (isHydrating || !segments) return;
 
     if (isAuthenticated && inAuthGroup) {
       router.replace("/(tabs)");
