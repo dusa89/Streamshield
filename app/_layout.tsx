@@ -47,28 +47,19 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
   console.log("AuthGuard debug: isAuthenticated", isAuthenticated, "isHydrating", isHydrating, "segments", segments, "inAuthGroup", inAuthGroup);
 
   useEffect(() => {
-    if (isHydrating) return;
+    if (isHydrating || !segments) return;
 
-    // Add timeout to handle undefined segments (common in Expo Router v2)
-    const timer = setTimeout(() => {
-      if (isAuthenticated && inAuthGroup) {
-        router.replace("/(tabs)");
-      } else if (!isAuthenticated && !inAuthGroup) {
-        router.replace("/(auth)");
-      }
-    }, 0);
-
-    return () => clearTimeout(timer);
+    // Only redirect if we have valid segments and the conditions are met
+    if (isAuthenticated && inAuthGroup) {
+      router.replace("/(tabs)");
+    } else if (!isAuthenticated && !inAuthGroup) {
+      router.replace("/(auth)");
+    }
   }, [isAuthenticated, isHydrating, segments, router]);
 
-  // Show spinner only if hydrating, allow undefined segments to pass through
-  if (isHydrating) {
+  // Show spinner if hydrating or segments undefined
+  if (isHydrating || !segments) {
     return <ActivityIndicator style={{ flex: 1, justifyContent: "center" }} />;
-  }
-
-  // If segments is undefined, show children (auth screen will handle routing)
-  if (!segments) {
-    return children;
   }
 
   return isAuthenticated === !inAuthGroup ? children : <ActivityIndicator style={{ flex: 1, justifyContent: "center" }} />;
