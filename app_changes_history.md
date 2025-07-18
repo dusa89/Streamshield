@@ -197,14 +197,15 @@ This file documents all code changes made to the StreamShield app for reference.
 - **Purpose**: Resolve bundling error from missing import in useInitialization.ts
 - **Status**: [x] Completed
 
-### AuthGuard Debug & Spinner Fix
-- **Files Modified**: app/_layout.tsx
+### Root Cause Fix: Store Hydration & Auth Redirect Logic
+- **Files Modified**: stores/auth.ts, stores/theme.ts, app/_layout.tsx
 - **Changes**: 
-  - Added console.log for isAuthenticated, segments, inAuthGroup to debug redirect issues
-  - Updated return to show spinner if !segments, preventing stuck state
-  - Added timeout in useEffect to handle undefined segments (Expo Router v2 issue)
-  - Improved fallback logic to show children when segments is undefined
-- **Purpose**: Resolve stuck ActivityIndicator after hydration by improving guard logic and adding visibility
+  - Fixed store hydration with proper onRehydrateStorage callbacks to set isHydrating: false
+  - Replaced AuthGuard component with direct redirect logic in root layout
+  - Switched from useSegments to usePathname for more stable routing
+  - Added redirect debouncing to prevent rapid fires
+  - Removed force timeout hack - now uses proper hydration completion
+- **Purpose**: Fix infinite loop by addressing root cause (stuck hydration flags) instead of symptoms
 - **Status**: [x] Completed
 
 ### Immer Dependency Fix
