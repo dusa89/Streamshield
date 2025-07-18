@@ -43,6 +43,9 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
   // Use optional chaining to handle brief undefined from useSegments()
   const inAuthGroup = segments?.[0] === "(auth)";
 
+  // Debug log to track auth guard state and redirect triggers
+  console.log("AuthGuard debug: isAuthenticated", isAuthenticated, "isHydrating", isHydrating, "segments", segments, "inAuthGroup", inAuthGroup);
+
   useEffect(() => {
     if (isHydrating || !segments) return;
 
@@ -53,8 +56,9 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
     }
   }, [isAuthenticated, isHydrating, segments, router]);
 
+  // Show spinner if hydrating or segments undefined, avoids null/white screen
   if (isHydrating || !segments) {
-    return <ActivityIndicator />;
+    return <ActivityIndicator style={{ flex: 1, justifyContent: "center" }} />;
   }
 
   return isAuthenticated === !inAuthGroup ? children : <ActivityIndicator style={{ flex: 1, justifyContent: "center" }} />;
