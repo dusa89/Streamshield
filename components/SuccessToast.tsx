@@ -78,7 +78,7 @@ export const SuccessToast: React.FC<SuccessToastProps> = ({
 
 // Add error variant
 export const ErrorToast = ({ message }) => (
-  <View style={{ backgroundColor: 'red' }}>
+  <View style={{ backgroundColor: "red" }}>
     <Text>{message}</Text>
   </View>
 );

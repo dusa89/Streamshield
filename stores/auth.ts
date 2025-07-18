@@ -166,25 +166,19 @@ export const useAuthStore = create<AuthState>()(
           isAuthenticated: state.isAuthenticated,
         }),
         onRehydrateStorage: () => {
-          console.log("Hydration starting");
+          console.log("Auth hydration starting");
           return (state, error) => {
-            console.log("Hydration callback called");
-        if (error) {
-              console.error("Hydration error:", error);
-              // Reset to safe state on error
-          return;
+            if (error) {
+              console.error("Auth hydration error:", error);
+              // Set isHydrating to false even on error to avoid stuck state
+              useAuthStore.getState().setIsHydrating(false);
             } else {
-              console.log("Hydration finished");
-              if (state?.isAuthenticated && (!state.tokens?.refreshToken)) {
-                console.warn("Invalid hydrated state: Authenticated but no valid tokens");
-                // The store will handle this through the persist middleware
-              }
+              console.log("Auth store hydrated successfully");
               // Set isHydrating to false after successful hydration
-              // We'll handle this in the component that uses the store
-              return;
-        }
+              useAuthStore.getState().setIsHydrating(false);
+            }
           };
-      },
+        },
       }
     )
   )

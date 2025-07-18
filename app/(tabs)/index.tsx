@@ -152,7 +152,7 @@ export default function ShieldScreen() {
 
   const handleToggleShield = async () => {
     if (!tokens?.accessToken || !user) {
-      router.push('/(auth)/login');
+      router.push("/(auth)/login");
       return;
     }
     if (Platform.OS !== "web") {
@@ -579,7 +579,7 @@ export default function ShieldScreen() {
           <View style={styles.shieldContainer}>
             <Pressable
               onPress={() => {
-                console.log('Shield button pressed');
+                console.log("Shield button pressed");
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                 handleToggleShield();
               }}

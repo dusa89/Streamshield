@@ -31,12 +31,22 @@ export const useThemeStore = create<ThemeState>()(
         set({ colorTheme });
       },
       isHydrating: true,
+      _setHydrating: (isHydrating: boolean) => set({ isHydrating }),
     }),
     {
       name: "theme-storage",
       storage: createJSONStorage(() => AsyncStorage),
-      onRehydrateStorage: () => (state) => {
-        if (state) state.isHydrating = false;
+      onRehydrateStorage: () => {
+        console.log("Theme hydration starting");
+        return (state, error) => {
+          if (error) {
+            console.error("Theme hydration error:", error);
+            useThemeStore.getState()._setHydrating(false);
+          } else {
+            console.log("Theme store hydrated successfully");
+            useThemeStore.getState()._setHydrating(false);
+          }
+        };
       },
     },
   ),

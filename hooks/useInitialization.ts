@@ -18,7 +18,7 @@ export const useInitialization = (setShowInstructions: (show: boolean) => void) 
       const init = async () => {
         try {
           // Add Android permission check
-          if (Platform.OS === 'android') {
+          if (Platform.OS === "android") {
             await checkAndroidPermissions();
           }
           await initialize(tokens.accessToken, user.id);

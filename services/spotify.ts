@@ -497,7 +497,7 @@ const getRecentlyPlayed = debounce(async (accessToken) => {
       })) ?? []
     );
   } catch (e) {
-    console.error('API error:', e);
+    console.error("API error:", e);
   }
 }, 300);
 

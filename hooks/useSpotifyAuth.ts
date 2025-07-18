@@ -6,7 +6,7 @@ import { useAuthStore } from "@/stores/auth";
 import { exchangeCodeForToken, getUserProfile } from "@/services/spotify";
 import { protectionMechanism } from "@/services/protectionMechanism";
 // Import zod
-import { z } from 'zod';
+import { z } from "zod";
 // Token schema
 const tokenSchema = z.object({ access_token: z.string(), refresh_token: z.string().optional(), expires_in: z.number() });
 
@@ -24,7 +24,7 @@ const CLIENT_ID =
   Constants.expoConfig?.extra?.EXPO_PUBLIC_SPOTIFY_CLIENT_ID ?? "";
 
 // Limit scopes to essentials only for security
-const scopes = ['user-read-playback-state', 'user-modify-playback-state', 'playlist-modify-public', 'playlist-modify-private', 'user-read-recently-played'];
+const scopes = ["user-read-playback-state", "user-modify-playback-state", "playlist-modify-public", "playlist-modify-private", "user-read-recently-played"];
 
 /**
  * Custom React hook for handling Spotify authentication in the app.
@@ -110,7 +110,7 @@ export const useSpotifyAuth = () => {
           try {
             const { tokens } = useAuthStore.getState();
             if (tokens?.accessToken) {
-              await protectionMechanism.initialize(tokens.accessToken, user?.id || '');
+              await protectionMechanism.initialize(tokens.accessToken, user?.id || "");
             }
           } catch (initError) {
             console.error(
@@ -123,9 +123,9 @@ export const useSpotifyAuth = () => {
           return true;
         } catch (tokenError) {
           console.error("Error exchanging code for tokens:", tokenError);
-          if (tokenError?.message?.includes('invalid_grant')) {
+          if (tokenError?.message?.includes("invalid_grant")) {
             useAuthStore.setState({ tokens: null });
-            setError(new Error('Token revoked - please try logging in again'));
+            setError(new Error("Token revoked - please try logging in again"));
             return false;
           }
           throw new Error("Failed to exchange authorization code for tokens");

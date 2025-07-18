@@ -645,7 +645,7 @@ class ProtectionMechanism {
   
         for (const playlist of allPlaylists) {
           const tracks = await SpotifyService.getAllTracksInPlaylist(accessToken, playlist.id);
-          tracks.forEach(t => allTrackUris.add(t.track?.uri ?? ''));
+          tracks.forEach(t => allTrackUris.add(t.track?.uri ?? ""));
         }
   
         const totalTracks = allTrackUris.size;

@@ -17,7 +17,7 @@ import { useNavigation } from "@react-navigation/native";
 import FontAwesome from "react-native-vector-icons/FontAwesome";
 import * as ImagePicker from "expo-image-picker";
 import * as AuthSession from "expo-auth-session";
-import { useSpotifyAuth } from '@/hooks/useSpotifyAuth';
+import { useSpotifyAuth } from "@/hooks/useSpotifyAuth";
 
 export default function ProfileScreen() {
   const { user, updateUser } = useAuthStore();
@@ -239,12 +239,12 @@ const styles = StyleSheet.create({
   reconnectButton: {
     paddingVertical: 14,
     borderRadius: 8,
-    alignItems: 'center',
+    alignItems: "center",
     marginTop: 16,
-    width: '100%',
+    width: "100%",
   },
   reconnectButtonText: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
 });

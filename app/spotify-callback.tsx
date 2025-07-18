@@ -1,7 +1,7 @@
-import { useEffect } from 'react';
-import { Text, View } from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
-import * as WebBrowser from 'expo-web-browser';
+import { useEffect } from "react";
+import { Text, View } from "react-native";
+import { useRouter, useLocalSearchParams } from "expo-router";
+import * as WebBrowser from "expo-web-browser";
 
 export default function SpotifyCallback() {
   const router = useRouter();
@@ -11,12 +11,12 @@ export default function SpotifyCallback() {
     WebBrowser.maybeCompleteAuthSession();
     // After successful token exchange:
     if (tokens) {
-      router.replace('/(tabs)');
+      router.replace("/(tabs)");
     }
   }, [router]);
 
   return (
-    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+    <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
       <Text>Completing Spotify connection...</Text>
     </View>
   );
